@@ -135,9 +135,12 @@ Respond ONLY with a valid JSON array, no explanation, no markdown, like this:
       )
       const data = await response.json()
       console.log('Gemini response:', JSON.stringify(data))
-      const text = data.candidates[0].content.parts[0].text
-      const clean = text.replace(/```json|```/g, '').trim()
-      const schedule = JSON.parse(clean)
+      if (!data.candidates || data.candidates.length === 0) {
+  throw new Error('Empty response from AI: ' + JSON.stringify(data))
+}
+const text = data.candidates[0].content.parts[0].text
+const clean = text.replace(/```json|```/g, '').trim()
+const schedule = JSON.parse(clean)
 
       const { error: deleteError } = await supabase.from('shifts').delete().gt('created_at', '2000-01-01')
       console.log('Delete error:', deleteError)
