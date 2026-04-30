@@ -15,19 +15,29 @@ export default function AdminDashboard({ user, onLogout }) {
   const [aiLoading, setAiLoading] = useState(false)
   const [editShift, setEditShift] = useState(null)
   const [minStaff, setMinStaff] = useState(2)
+const [restaurantRules, setRestaurantRules] = useState('')
+const [weekNotes, setWeekNotes] = useState('')
+const [settingsSaved, setSettingsSaved] = useState(false)
 
   useEffect(() => { fetchAll() }, [])
 
-  const fetchAll = async () => {
+ const fetchAll = async () => {
     setLoading(true)
-    const [{ data: emps }, { data: sh }, { data: prefs }] = await Promise.all([
+    const [{ data: emps }, { data: sh }, { data: prefs }, { data: sets }] = await Promise.all([
       supabase.from('employees').select('*').eq('role', 'employee'),
       supabase.from('shifts').select('*'),
-      supabase.from('preferences').select('*')
+      supabase.from('preferences').select('*'),
+      supabase.from('settings').select('*')
     ])
     setEmployees(emps || [])
     setShifts(sh || [])
     setPreferences(prefs || [])
+    if (sets) {
+      const rules = sets.find(s => s.id === 'restaurant_rules')
+      const notes = sets.find(s => s.id === 'week_notes')
+      if (rules) setRestaurantRules(rules.value)
+      if (notes) setWeekNotes(notes.value)
+    }
     setLoading(false)
   }
 
@@ -65,6 +75,14 @@ export default function AdminDashboard({ user, onLogout }) {
     fetchAll()
   }
 
+  const saveSettings = async () => {
+    await supabase.from('settings').upsert([
+      { id: 'restaurant_rules', value: restaurantRules },
+      { id: 'week_notes', value: weekNotes }
+    ])
+    setSettingsSaved(true)
+    setTimeout(() => setSettingsSaved(false), 2000)
+  }
   const deleteShift = async (id) => {
     await supabase.from('shifts').delete().eq('id', id)
     setEditShift(null)
@@ -89,10 +107,16 @@ export default function AdminDashboard({ user, onLogout }) {
 The restaurant is open every day from 11:00 to 00:00.
 Minimum staff required per day: ${minStaff}
 
-Employee availability:
+PERMANENT RESTAURANT RULES (always follow these):
+${restaurantRules || 'No specific rules set.'}
+
+SPECIAL INSTRUCTIONS FOR THIS WEEK:
+${weekNotes || 'No special instructions for this week.'}
+
+Employee availability this week:
 ${prefSummary}
 
-Generate a weekly schedule. For each employee, assign shifts only on days they are available and within their preferred hours. Try to meet the minimum staffing requirement each day. 
+Generate a weekly schedule following all the rules above. Assign shifts only on days employees are available and within their preferred hours.
 
 Respond ONLY with a valid JSON array, no explanation, no markdown, like this:
 [{"employee_name":"Sara","day":"Monday","start_time":"11:00","end_time":"17:00"},...]`
@@ -149,7 +173,7 @@ const schedule = JSON.parse(clean)
 
       {/* Tabs */}
       <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #eee' }}>
-        {['schedule', 'employees'].map(t => (
+        {['schedule', 'settings', 'employees'].map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -159,7 +183,7 @@ const schedule = JSON.parse(clean)
               color: tab === t ? '#e8723a' : '#888', fontWeight: 600, fontSize: 14
             }}
           >
-            {t === 'schedule' ? '📅 Schedule' : '👥 Employees'}
+           {t === 'schedule' ? '📅 Schedule' : t === 'settings' ? '⚙️ Instructions' : '👥 Employees'}
           </button>
         ))}
       </div>
@@ -249,30 +273,42 @@ const schedule = JSON.parse(clean)
           </>
         )}
 
+        {/* Settings Tab */}
+        {tab === 'settings' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>📋 Permanent Restaurant Rules</h2>
+              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>These rules apply every week when generating the schedule. Example: "Always have at least 2 people on Saturday night", "Elie never works Mondays".</p>
+              <textarea
+                value={restaurantRules}
+                onChange={e => setRestaurantRules(e.target.value)}
+                placeholder="Write your permanent rules here..."
+                style={{ width: '100%', height: 160, padding: 12, borderRadius: 8, border: '1px solid #ddd', fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }}
+              />
+            </div>
+
+            <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>🗓 This Week's Special Instructions</h2>
+              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>One-time notes for this week only. Example: "Christmas week, restaurant closes at 20:00", "We need extra staff on Friday".</p>
+              <textarea
+                value={weekNotes}
+                onChange={e => setWeekNotes(e.target.value)}
+                placeholder="Write this week's special instructions here..."
+                style={{ width: '100%', height: 120, padding: 12, borderRadius: 8, border: '1px solid #ddd', fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }}
+              />
+            </div>
+
+            <button
+              onClick={saveSettings}
+              style={{ background: '#e8723a', color: 'white', padding: 14, fontSize: 15 }}
+            >
+              {settingsSaved ? '✓ Saved!' : 'Save Instructions'}
+            </button>
+          </div>
+        )}
+
         {/* Employees Tab */}
         {tab === 'employees' && (
-          <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>👥 Manage Employees</h2>
-
-            {/* Add Employee */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
-              <input
-                placeholder="Employee name"
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                style={{ flex: 2, minWidth: 120 }}
-              />
-              <input
-                placeholder="4-digit PIN"
-                maxLength={4}
-                value={newPin}
-                onChange={e => setNewPin(e.target.value)}
-                style={{ flex: 1, minWidth: 100 }}
-              />
-              <button onClick={addEmployee} style={{ background: '#e8723a', color: 'white' }}>
-                + Add
-              </button>
-            </div>
 
             {/* Employee List */}
             {employees.length === 0 ? (
