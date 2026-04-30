@@ -15,13 +15,13 @@ export default function AdminDashboard({ user, onLogout }) {
   const [aiLoading, setAiLoading] = useState(false)
   const [editShift, setEditShift] = useState(null)
   const [minStaff, setMinStaff] = useState(2)
-const [restaurantRules, setRestaurantRules] = useState('')
-const [weekNotes, setWeekNotes] = useState('')
-const [settingsSaved, setSettingsSaved] = useState(false)
+  const [restaurantRules, setRestaurantRules] = useState('')
+  const [weekNotes, setWeekNotes] = useState('')
+  const [settingsSaved, setSettingsSaved] = useState(false)
 
   useEffect(() => { fetchAll() }, [])
 
- const fetchAll = async () => {
+  const fetchAll = async () => {
     setLoading(true)
     const [{ data: emps }, { data: sh }, { data: prefs }, { data: sets }] = await Promise.all([
       supabase.from('employees').select('*').eq('role', 'employee'),
@@ -83,6 +83,7 @@ const [settingsSaved, setSettingsSaved] = useState(false)
     setSettingsSaved(true)
     setTimeout(() => setSettingsSaved(false), 2000)
   }
+
   const deleteShift = async (id) => {
     await supabase.from('shifts').delete().eq('id', id)
     setEditShift(null)
@@ -95,7 +96,7 @@ const [settingsSaved, setSettingsSaved] = useState(false)
   const getPref = (employeeId, day) =>
     preferences.find(p => p.employee_id === employeeId && p.day === day)
 
- const generateAISchedule = async () => {
+  const generateAISchedule = async () => {
     setAiLoading(true)
     const prefSummary = employees.map(emp => {
       const empPrefs = preferences.filter(p => p.employee_id === emp.id)
@@ -123,22 +124,21 @@ Respond ONLY with a valid JSON array, no explanation, no markdown, like this:
 
     try {
       const response = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
-  {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
-    })
-  }
-)
-const data = await response.json()
-console.log('Gemini response:', JSON.stringify(data))
-const text = data.candidates[0].content.parts[0].text
-const clean = text.replace(/```json|```/g, '').trim()
-const schedule = JSON.parse(clean)
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      )
+      const data = await response.json()
+      console.log('Gemini response:', JSON.stringify(data))
+      const text = data.candidates[0].content.parts[0].text
+      const clean = text.replace(/```json|```/g, '').trim()
+      const schedule = JSON.parse(clean)
 
-      // Delete only shifts, not employees
       const { error: deleteError } = await supabase.from('shifts').delete().gt('created_at', '2000-01-01')
       console.log('Delete error:', deleteError)
 
@@ -183,7 +183,7 @@ const schedule = JSON.parse(clean)
               color: tab === t ? '#e8723a' : '#888', fontWeight: 600, fontSize: 14
             }}
           >
-           {t === 'schedule' ? '📅 Schedule' : t === 'settings' ? '⚙️ Instructions' : '👥 Employees'}
+            {t === 'schedule' ? '📅 Schedule' : t === 'settings' ? '⚙️ Instructions' : '👥 Employees'}
           </button>
         ))}
       </div>
@@ -193,7 +193,6 @@ const schedule = JSON.parse(clean)
         {/* Schedule Tab */}
         {tab === 'schedule' && (
           <>
-            {/* AI Generator */}
             <div style={{ background: 'white', borderRadius: 12, padding: 20, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>🤖 AI Schedule Generator</h2>
               <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>Set your minimum staffing and let AI build the schedule based on employee availability.</p>
@@ -215,7 +214,6 @@ const schedule = JSON.parse(clean)
               </button>
             </div>
 
-            {/* Schedule Grid */}
             <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Weekly Schedule</h2>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -273,7 +271,7 @@ const schedule = JSON.parse(clean)
           </>
         )}
 
-        {/* Settings Tab */}
+        {/* Instructions Tab */}
         {tab === 'settings' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -309,8 +307,28 @@ const schedule = JSON.parse(clean)
 
         {/* Employees Tab */}
         {tab === 'employees' && (
+          <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>👥 Manage Employees</h2>
 
-            {/* Employee List */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
+              <input
+                placeholder="Employee name"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                style={{ flex: 2, minWidth: 120 }}
+              />
+              <input
+                placeholder="4-digit PIN"
+                maxLength={4}
+                value={newPin}
+                onChange={e => setNewPin(e.target.value)}
+                style={{ flex: 1, minWidth: 100 }}
+              />
+              <button onClick={addEmployee} style={{ background: '#e8723a', color: 'white' }}>
+                + Add
+              </button>
+            </div>
+
             {employees.length === 0 ? (
               <p style={{ color: '#888', fontSize: 14 }}>No employees yet. Add one above!</p>
             ) : (
