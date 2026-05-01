@@ -123,22 +123,24 @@ Respond ONLY with a valid JSON array, no explanation, no markdown, like this:
 [{"employee_name":"Sara","day":"Monday","start_time":"11:00","end_time":"17:00"},...]`
 
     try {
-      const response = await fetch(
-       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
-        }
-      )
-      const data = await response.json()
-      console.log('Gemini response:', JSON.stringify(data))
-      if (!data.candidates || data.candidates.length === 0) {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+  },
+  body: JSON.stringify({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 1000
+  })
+})
+const data = await response.json()
+console.log('OpenAI response:', JSON.stringify(data))
+if (!data.choices || data.choices.length === 0) {
   throw new Error('Empty response from AI: ' + JSON.stringify(data))
 }
-const text = data.candidates[0].content.parts[0].text
+const text = data.choices[0].message.content
 const clean = text.replace(/```json|```/g, '').trim()
 const schedule = JSON.parse(clean)
 
