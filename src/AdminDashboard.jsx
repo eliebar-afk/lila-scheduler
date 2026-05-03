@@ -184,8 +184,8 @@ const schedule = JSON.parse(clean)
             onClick={() => setTab(t)}
             style={{
               flex: 1, padding: 14, background: 'none', borderRadius: 0,
-              borderBottom: tab === t ? '3px solid #e8723a' : '3px solid transparent',
-              color: tab === t ? '#e8723a' : '#888', fontWeight: 600, fontSize: 14
+              borderBottom: tab === t ? '3px solid #44ab51' : '3px solid transparent',
+              color: tab === t ? '#44ab51' : '#888', fontWeight: 600, fontSize: 14
             }}
           >
             {t === 'schedule' ? '📅 Schedule' : t === 'settings' ? '⚙️ Instructions' : '👥 Employees'}
@@ -205,7 +205,7 @@ const schedule = JSON.parse(clean)
               <button
                 onClick={generateAISchedule}
                 disabled={aiLoading}
-                style={{ background: '#3ad32c', color: 'white', padding: '12px 24px' }}
+                style={{ background: '#44ab51', color: 'white', padding: '12px 24px' }}
               >
                 {aiLoading ? '⏳ Generating...' : '✨ Generate Schedule with AI'}
               </button>
@@ -245,8 +245,8 @@ const schedule = JSON.parse(clean)
                             >
                               {shift ? (
                                 <>
-                                  <span style={{ fontSize: 10, color: '#e8723a', fontWeight: 700 }}>{shift.start_time}</span>
-                                  <span style={{ fontSize: 10, color: '#e8723a' }}>{shift.end_time}</span>
+                                  <span style={{ fontSize: 10, color: '#44ab51', fontWeight: 700 }}>{shift.start_time}</span>
+                                  <span style={{ fontSize: 10, color: '#44ab51' }}>{shift.end_time}</span>
                                 </>
                               ) : pref ? (
                                 <span style={{ fontSize: 10, color: '#86c98e' }}>avail</span>
@@ -295,7 +295,7 @@ const schedule = JSON.parse(clean)
 
             <button
               onClick={saveSettings}
-              style={{ background: '#e8723a', color: 'white', padding: 14, fontSize: 15 }}
+              style={{ background: '#44ab51', color: 'white', padding: 14, fontSize: 15 }}
             >
               {settingsSaved ? '✓ Saved!' : 'Save Instructions'}
             </button>
@@ -321,7 +321,7 @@ const schedule = JSON.parse(clean)
                 onChange={e => setNewPin(e.target.value)}
                 style={{ flex: 1, minWidth: 100 }}
               />
-              <button onClick={addEmployee} style={{ background: '#e8723a', color: 'white' }}>
+              <button onClick={addEmployee} style={{ background: '#44ab51', color: 'white' }}>
                 + Add
               </button>
             </div>
