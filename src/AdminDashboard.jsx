@@ -408,26 +408,56 @@ function AttendanceReport({ employees, supabase }) {
   const [records, setRecords] = useState([])
   const [view, setView] = useState('weekly')
   const [loading, setLoading] = useState(true)
+  const [selectedWeek, setSelectedWeek] = useState(0)
+  const [selectedMonth, setSelectedMonth] = useState(0)
 
-  useEffect(() => { fetchRecords() }, [view])
+  useEffect(() => { fetchRecords() }, [view, selectedWeek, selectedMonth])
+
+  const getWeekOptions = () => {
+    const weeks = []
+    for (let i = 0; i < 12; i++) {
+      const d = new Date()
+      const day = d.getDay()
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+      d.setDate(diff - i * 7)
+      const start = new Date(d)
+      const end = new Date(d)
+      end.setDate(end.getDate() + 6)
+      weeks.push({
+        label: `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0]
+      })
+    }
+    return weeks
+  }
+
+  const getMonthOptions = () => {
+    const months = []
+    for (let i = 0; i < 12; i++) {
+      const d = new Date()
+      d.setMonth(d.getMonth() - i)
+      const start = new Date(d.getFullYear(), d.getMonth(), 1)
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+      months.push({
+        label: start.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0]
+      })
+    }
+    return months
+  }
 
   const fetchRecords = async () => {
     setLoading(true)
-    const now = new Date()
-    let startDate
-
-    if (view === 'weekly') {
-      const day = now.getDay()
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1)
-      startDate = new Date(now.setDate(diff)).toISOString().split('T')[0]
-    } else {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-    }
+    const options = view === 'weekly' ? getWeekOptions() : getMonthOptions()
+    const selected = options[view === 'weekly' ? selectedWeek : selectedMonth]
 
     const { data } = await supabase
       .from('attendance')
       .select('*')
-      .gte('date', startDate)
+      .gte('date', selected.startDate)
+      .lte('date', selected.endDate)
 
     setRecords(data || [])
     setLoading(false)
@@ -448,7 +478,8 @@ function AttendanceReport({ employees, supabase }) {
     return { total, records: empRecords }
   }
 
-  if (loading) return <div style={{ padding: 40 }}>Loading...</div>
+  const weekOptions = getWeekOptions()
+  const monthOptions = getMonthOptions()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -465,13 +496,29 @@ function AttendanceReport({ employees, supabase }) {
               fontWeight: 600, fontSize: 14
             }}
           >
-            {v === 'weekly' ? '📅 This Week' : '📆 This Month'}
+            {v === 'weekly' ? '📅 Weekly' : '📆 Monthly'}
           </button>
         ))}
       </div>
 
+      {/* Dropdown */}
+      <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+        <label style={{ fontSize: 13, fontWeight: 600, color: '#555', display: 'block', marginBottom: 8 }}>
+          {view === 'weekly' ? 'Select Week' : 'Select Month'}
+        </label>
+        <select
+          value={view === 'weekly' ? selectedWeek : selectedMonth}
+          onChange={e => view === 'weekly' ? setSelectedWeek(Number(e.target.value)) : setSelectedMonth(Number(e.target.value))}
+          style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}
+        >
+          {(view === 'weekly' ? weekOptions : monthOptions).map((opt, i) => (
+            <option key={i} value={i}>{i === 0 ? `This ${view === 'weekly' ? 'Week' : 'Month'} — ` : ''}{opt.label}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Employee Cards */}
-      {employees.map(emp => {
+      {loading ? <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>Loading...</div> : employees.map(emp => {
         const { total, records: empRecords } = getEmployeeHours(emp.id)
         return (
           <div key={emp.id} style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
