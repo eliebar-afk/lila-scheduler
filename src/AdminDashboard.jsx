@@ -402,6 +402,8 @@ const schedule = JSON.parse(clean)
       )}
     </div>
   )
+}
+
 function AttendanceReport({ employees, supabase }) {
   const [records, setRecords] = useState([])
   const [view, setView] = useState('weekly')
