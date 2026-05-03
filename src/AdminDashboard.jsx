@@ -178,7 +178,7 @@ const schedule = JSON.parse(clean)
 
       {/* Tabs */}
       <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #eee' }}>
-        {['schedule', 'settings', 'employees'].map(t => (
+        {['schedule', 'attendance', 'settings', 'employees'].map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -188,7 +188,7 @@ const schedule = JSON.parse(clean)
               color: tab === t ? '#44ab51' : '#888', fontWeight: 600, fontSize: 14
             }}
           >
-            {t === 'schedule' ? '📅 Schedule' : t === 'settings' ? '⚙️ Instructions' : '👥 Employees'}
+            {t === 'schedule' ? '📅 Schedule' : t === 'attendance' ? '🕐 Hours' : t === 'settings' ? '⚙️ Instructions' : '👥 Employees'}
           </button>
         ))}
       </div>
@@ -267,7 +267,10 @@ const schedule = JSON.parse(clean)
             </div>
           </>
         )}
-
+{/* Attendance Tab */}
+        {tab === 'attendance' && (
+          <AttendanceReport employees={employees} supabase={supabase} />
+        )}
         {/* Instructions Tab */}
         {tab === 'settings' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -397,6 +400,99 @@ const schedule = JSON.parse(clean)
           </div>
         </div>
       )}
+    </div>
+  )
+function AttendanceReport({ employees, supabase }) {
+  const [records, setRecords] = useState([])
+  const [view, setView] = useState('weekly')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { fetchRecords() }, [view])
+
+  const fetchRecords = async () => {
+    setLoading(true)
+    const now = new Date()
+    let startDate
+
+    if (view === 'weekly') {
+      const day = now.getDay()
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+      startDate = new Date(now.setDate(diff)).toISOString().split('T')[0]
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    }
+
+    const { data } = await supabase
+      .from('attendance')
+      .select('*')
+      .gte('date', startDate)
+
+    setRecords(data || [])
+    setLoading(false)
+  }
+
+  const calcHours = (checkIn, checkOut) => {
+    if (!checkIn || !checkOut) return 0
+    const [inH, inM] = checkIn.split(':').map(Number)
+    const [outH, outM] = checkOut.split(':').map(Number)
+    let mins = (outH * 60 + outM) - (inH * 60 + inM)
+    if (mins < 0) mins += 24 * 60
+    return Math.round(mins / 60 * 10) / 10
+  }
+
+  const getEmployeeHours = (employeeId) => {
+    const empRecords = records.filter(r => r.employee_id === employeeId)
+    const total = empRecords.reduce((sum, r) => sum + calcHours(r.check_in, r.check_out), 0)
+    return { total, records: empRecords }
+  }
+
+  if (loading) return <div style={{ padding: 40 }}>Loading...</div>
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Toggle */}
+      <div style={{ display: 'flex', background: 'white', borderRadius: 12, padding: 6, gap: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+        {['weekly', 'monthly'].map(v => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            style={{
+              flex: 1, padding: 10, borderRadius: 8,
+              background: view === v ? '#44ab51' : 'transparent',
+              color: view === v ? 'white' : '#888',
+              fontWeight: 600, fontSize: 14
+            }}
+          >
+            {v === 'weekly' ? '📅 This Week' : '📆 This Month'}
+          </button>
+        ))}
+      </div>
+
+      {/* Employee Cards */}
+      {employees.map(emp => {
+        const { total, records: empRecords } = getEmployeeHours(emp.id)
+        return (
+          <div key={emp.id} style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>{emp.name}</span>
+              <span style={{ background: '#f0faf0', color: '#44ab51', fontWeight: 700, padding: '4px 12px', borderRadius: 20, fontSize: 14 }}>
+                {total} hrs
+              </span>
+            </div>
+            {empRecords.length === 0 ? (
+              <p style={{ color: '#aaa', fontSize: 13 }}>No check-ins recorded</p>
+            ) : (
+              empRecords.map(r => (
+                <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid #f0f0f0', fontSize: 13 }}>
+                  <span style={{ color: '#666' }}>{r.date}</span>
+                  <span>{r.check_in || '—'} → {r.check_out || '—'}</span>
+                  <span style={{ color: '#44ab51', fontWeight: 600 }}>{calcHours(r.check_in, r.check_out)} hrs</span>
+                </div>
+              ))
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
