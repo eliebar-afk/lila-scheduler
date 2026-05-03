@@ -168,7 +168,7 @@ const schedule = JSON.parse(clean)
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
       {/* Header */}
-      <div style={{ background: '#e8723a', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: '#44ab51', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ color: 'white', fontSize: 20, fontWeight: 800 }}>🍽 Lila</h1>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>Admin Panel</p>
@@ -392,7 +392,7 @@ const schedule = JSON.parse(clean)
               {editShift.id && (
                 <button onClick={() => deleteShift(editShift.id)} style={{ flex: 1, background: '#fee', color: '#e44' }}>Delete</button>
               )}
-              <button onClick={saveShift} style={{ flex: 1, background: '#e8723a', color: 'white' }}>Save</button>
+              <button onClick={saveShift} style={{ flex: 1, background: '#44ab51', color: 'white' }}>Save</button>
             </div>
           </div>
         </div>
