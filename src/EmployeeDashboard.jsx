@@ -141,7 +141,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
       {/* Header */}
-      <div style={{ background: '#7ed8a0', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: '#44ab51', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ color: 'white', fontSize: 20, fontWeight: 800 }}>🍽 Lila</h1>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>Hi, {user.name}!</p>
@@ -157,8 +157,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
             onClick={() => setTab(t)}
             style={{
               flex: 1, padding: 14, background: 'none', borderRadius: 0,
-              borderBottom: tab === t ? '3px solid #7ed8a0' : '3px solid transparent',
-              color: tab === t ? '#7ed8a0' : '#888', fontWeight: 600, fontSize: 13
+              borderBottom: tab === t ? '3px solid #44ab51' : '3px solid transparent',
+              color: tab === t ? '#44ab51' : '#888', fontWeight: 600, fontSize: 13
             }}
           >
             {t === 'schedule' ? '📅 Schedule' : t === 'checkin' ? '✅ Check In' : '✏️ Availability'}
@@ -178,7 +178,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
               schedule.map(s => (
                 <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
                   <span style={{ fontWeight: 600 }}>{s.day}</span>
-                  <span style={{ color: '#7ed8a0', fontWeight: 600 }}>{s.start_time} – {s.end_time}</span>
+                  <span style={{ color: '#44ab51', fontWeight: 600 }}>{s.start_time} – {s.end_time}</span>
                 </div>
               ))
             )}
@@ -196,7 +196,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
               display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
               borderRadius: 8, marginBottom: 24,
               background: isOnRestaurantWifi ? '#f0faf0' : '#fff0f0',
-              border: `1px solid ${isOnRestaurantWifi ? '#7ed8a0' : '#ffaaaa'}`
+              border: `1px solid ${isOnRestaurantWifi ? '#44ab51' : '#ffaaaa'}`
             }}>
               <span style={{ fontSize: 20 }}>{isOnRestaurantWifi ? '🟢' : '🔴'}</span>
               <div>
@@ -214,11 +214,11 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 <div style={{ display: 'flex', gap: 24 }}>
                   <div>
                     <p style={{ fontSize: 12, color: '#aaa' }}>Checked in</p>
-                    <p style={{ fontWeight: 700, color: '#7ed8a0' }}>{attendance.check_in || '—'}</p>
+                    <p style={{ fontWeight: 700, color: '#44ab51' }}>{attendance.check_in || '—'}</p>
                   </div>
                   <div>
                     <p style={{ fontSize: 12, color: '#aaa' }}>Checked out</p>
-                    <p style={{ fontWeight: 700, color: '#7ed8a0' }}>{attendance.check_out || '—'}</p>
+                    <p style={{ fontWeight: 700, color: '#44ab51' }}>{attendance.check_out || '—'}</p>
                   </div>
                 </div>
               </div>
@@ -231,7 +231,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 disabled={checkLoading || !isOnRestaurantWifi}
                 style={{
                   width: '100%', padding: 16, fontSize: 16, fontWeight: 700,
-                  background: isOnRestaurantWifi ? '#7ed8a0' : '#ccc',
+                  background: isOnRestaurantWifi ? '#44ab51' : '#ccc',
                   color: 'white', borderRadius: 12
                 }}
               >
@@ -250,7 +250,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 {checkLoading ? 'Checking out...' : '🔴 Check Out'}
               </button>
             ) : (
-              <div style={{ textAlign: 'center', padding: 20, color: '#7ed8a0', fontWeight: 700, fontSize: 16 }}>
+              <div style={{ textAlign: 'center', padding: 20, color: '#44ab51', fontWeight: 700, fontSize: 16 }}>
                 ✅ Shift complete for today!
               </div>
             )}
@@ -271,12 +271,12 @@ export default function EmployeeDashboard({ user, onLogout }) {
                     display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
                     padding: '10px 14px', borderRadius: 8,
                     background: preferences[day] ? '#f0faf0' : '#f9f9f9',
-                    border: `2px solid ${preferences[day] ? '#7ed8a0' : '#eee'}`
+                    border: `2px solid ${preferences[day] ? '#44ab51' : '#eee'}`
                   }}
                 >
                   <div style={{
                     width: 20, height: 20, borderRadius: 6,
-                    background: preferences[day] ? '#7ed8a0' : '#ddd',
+                    background: preferences[day] ? '#44ab51' : '#ddd',
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     {preferences[day] && <span style={{ color: 'white', fontSize: 12 }}>✓</span>}
@@ -313,7 +313,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
             <button
               onClick={savePreferences}
-              style={{ width: '100%', background: '#7ed8a0', color: 'white', padding: 14, fontSize: 15, marginTop: 8 }}
+              style={{ width: '100%', background: '#44ab51', color: 'white', padding: 14, fontSize: 15, marginTop: 8 }}
             >
               {saved ? '✓ Saved!' : 'Save Availability'}
             </button>
