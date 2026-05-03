@@ -203,7 +203,6 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 <p style={{ fontWeight: 600, fontSize: 14, color: isOnRestaurantWifi ? '#2d8a50' : '#cc4444' }}>
                   {isOnRestaurantWifi ? 'Connected to restaurant WiFi' : 'Not on restaurant WiFi'}
                 </p>
-                <p style={{ fontSize: 12, color: '#aaa' }}>Your IP: {userIp || 'detecting...'}</p>
               </div>
             </div>
 
