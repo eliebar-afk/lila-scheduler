@@ -35,7 +35,7 @@ if (error || !data) {
         background: 'white', borderRadius: 16, padding: 40,
         width: '100%', maxWidth: 360, boxShadow: '0 4px 24px rgba(0,0,0,0.08)'
       }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: '#e8723a', marginBottom: 4 }}>🍽 Lila</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: '#44ab51', marginBottom: 4 }}>🍽 Lila</h1>
         <p style={{ color: '#888', marginBottom: 32 }}>Staff Scheduler</p>
 
         <div style={{ marginBottom: 16 }}>
@@ -64,7 +64,7 @@ if (error || !data) {
         <button
           onClick={handleLogin}
           disabled={loading}
-          style={{ width: '100%', background: '#e8723a', color: 'white', padding: '12px', fontSize: 16 }}
+          style={{ width: '100%', background: '#44ab51', color: 'white', padding: '12px', fontSize: 16 }}
         >
           {loading ? 'Logging in...' : 'Log In'}
         </button>
