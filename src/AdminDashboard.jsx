@@ -498,4 +498,3 @@ function AttendanceReport({ employees, supabase }) {
     </div>
   )
 }
-}
