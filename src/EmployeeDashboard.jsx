@@ -5,12 +5,12 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 const HOURS = ['11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00', '00:00']
 const HOURS_LATE = ['11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00', '00:00', '01:00', '02:00']
 
-// 🔧 Replace this with your restaurant's public IP later
 const RESTAURANT_IP = '31.187.153.185'
 
 export default function EmployeeDashboard({ user, onLogout }) {
   const [preferences, setPreferences] = useState({})
   const [schedule, setSchedule] = useState([])
+  const [employees, setEmployees] = useState([])
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userIp, setUserIp] = useState('')
@@ -51,9 +51,15 @@ export default function EmployeeDashboard({ user, onLogout }) {
     const { data: schedData } = await supabase
       .from('shifts')
       .select('*')
-      .eq('employee_id', user.id)
 
     if (schedData) setSchedule(schedData)
+
+    const { data: empData } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('role', 'employee')
+
+    if (empData) setEmployees(empData)
 
     const { data: attData } = await supabase
       .from('attendance')
@@ -97,45 +103,41 @@ export default function EmployeeDashboard({ user, onLogout }) {
   }
 
   const handleCheckIn = async () => {
-    if (userIp !== RESTAURANT_IP && RESTAURANT_IP !== 'PLACEHOLDER') {
+    if (userIp !== RESTAURANT_IP) {
       alert('You must be connected to the restaurant WiFi to check in.')
       return
     }
     setCheckLoading(true)
     const today = new Date().toISOString().split('T')[0]
     const now = new Date().toTimeString().slice(0, 5)
-
     const { data } = await supabase
       .from('attendance')
       .insert({ employee_id: user.id, date: today, check_in: now })
       .select()
       .single()
-
     if (data) setAttendance(data)
     setCheckLoading(false)
   }
 
   const handleCheckOut = async () => {
-    if (userIp !== RESTAURANT_IP && RESTAURANT_IP !== 'PLACEHOLDER') {
+    if (userIp !== RESTAURANT_IP) {
       alert('You must be connected to the restaurant WiFi to check out.')
       return
     }
     if (!attendance) return
     setCheckLoading(true)
     const now = new Date().toTimeString().slice(0, 5)
-
     const { data } = await supabase
       .from('attendance')
       .update({ check_out: now })
       .eq('id', attendance.id)
       .select()
       .single()
-
     if (data) setAttendance(data)
     setCheckLoading(false)
   }
 
-  const isOnRestaurantWifi = userIp === RESTAURANT_IP || RESTAURANT_IP === 'PLACEHOLDER'
+  const isOnRestaurantWifi = userIp === RESTAURANT_IP
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
@@ -167,22 +169,57 @@ export default function EmployeeDashboard({ user, onLogout }) {
         ))}
       </div>
 
-      <div style={{ padding: 24, maxWidth: 600, margin: '0 auto' }}>
+      <div style={{ padding: 24, maxWidth: 800, margin: '0 auto' }}>
 
         {/* Schedule Tab */}
         {tab === 'schedule' && (
-          <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>📅 My Schedule This Week</h2>
-            {schedule.length === 0 ? (
-              <p style={{ color: '#888', fontSize: 14 }}>No shifts scheduled yet.</p>
-            ) : (
-              schedule.map(s => (
-                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
-                  <span style={{ fontWeight: 600 }}>{s.day}</span>
-                  <span style={{ color: '#44ab51', fontWeight: 600 }}>{s.start_time} – {s.end_time}</span>
-                </div>
-              ))
-            )}
+          <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>📅 Team Schedule This Week</h2>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '8px 10px', color: '#888', fontWeight: 600, minWidth: 80 }}>Employee</th>
+                  {DAYS.map(d => (
+                    <th key={d} style={{ padding: '8px 4px', color: '#888', fontWeight: 600, textAlign: 'center', minWidth: 60 }}>
+                      {d.slice(0, 3)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map(emp => (
+                  <tr key={emp.id} style={{ borderTop: '1px solid #f0f0f0' }}>
+                    <td style={{ padding: '10px 10px', fontWeight: emp.id === user.id ? 700 : 500, color: emp.id === user.id ? '#44ab51' : '#333' }}>
+                      {emp.name} {emp.id === user.id ? '(me)' : ''}
+                    </td>
+                    {DAYS.map(day => {
+                      const shift = schedule.find(s => s.employee_id === emp.id && s.day === day)
+                      const isMe = emp.id === user.id
+                      return (
+                        <td key={day} style={{ padding: '4px', textAlign: 'center' }}>
+                          {shift ? (
+                            <div style={{
+                              borderRadius: 6, padding: '4px 2px',
+                              background: isMe ? '#f0faf0' : '#f9f9f9',
+                              border: `1px solid ${isMe ? '#44ab51' : '#ddd'}`,
+                              minHeight: 36, display: 'flex', flexDirection: 'column',
+                              alignItems: 'center', justifyContent: 'center'
+                            }}>
+                              <span style={{ fontSize: 10, color: isMe ? '#44ab51' : '#666', fontWeight: 600 }}>{shift.start_time}</span>
+                              <span style={{ fontSize: 10, color: isMe ? '#44ab51' : '#888' }}>{shift.end_time}</span>
+                            </div>
+                          ) : (
+                            <div style={{ minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <span style={{ fontSize: 12, color: '#ddd' }}>—</span>
+                            </div>
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -200,11 +237,9 @@ export default function EmployeeDashboard({ user, onLogout }) {
               border: `1px solid ${isOnRestaurantWifi ? '#44ab51' : '#ffaaaa'}`
             }}>
               <span style={{ fontSize: 20 }}>{isOnRestaurantWifi ? '🟢' : '🔴'}</span>
-              <div>
-                <p style={{ fontWeight: 600, fontSize: 14, color: isOnRestaurantWifi ? '#2d8a50' : '#cc4444' }}>
-                  {isOnRestaurantWifi ? 'Connected to restaurant WiFi' : 'Not on restaurant WiFi'}
-                </p>
-              </div>
+              <p style={{ fontWeight: 600, fontSize: 14, color: isOnRestaurantWifi ? '#2d8a50' : '#cc4444' }}>
+                {isOnRestaurantWifi ? 'Connected to restaurant WiFi' : 'Not on restaurant WiFi'}
+              </p>
             </div>
 
             {/* Today's Attendance */}
@@ -243,7 +278,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 disabled={checkLoading || !isOnRestaurantWifi}
                 style={{
                   width: '100%', padding: 16, fontSize: 16, fontWeight: 700,
-                  background: isOnRestaurantWifi ? '#e8723a' : '#ccc',
+                  background: isOnRestaurantWifi ? '#e05555' : '#ccc',
                   color: 'white', borderRadius: 12
                 }}
               >
