@@ -406,10 +406,12 @@ const schedule = JSON.parse(clean)
 
 function AttendanceReport({ employees, supabase }) {
   const [records, setRecords] = useState([])
+  const [shifts, setShifts] = useState([])
   const [view, setView] = useState('weekly')
   const [loading, setLoading] = useState(true)
   const [selectedWeek, setSelectedWeek] = useState(0)
   const [selectedMonth, setSelectedMonth] = useState(0)
+  const [showComparison, setShowComparison] = useState(false)
 
   useEffect(() => { fetchRecords() }, [view, selectedWeek, selectedMonth])
 
@@ -453,13 +455,13 @@ function AttendanceReport({ employees, supabase }) {
     const options = view === 'weekly' ? getWeekOptions() : getMonthOptions()
     const selected = options[view === 'weekly' ? selectedWeek : selectedMonth]
 
-    const { data } = await supabase
-      .from('attendance')
-      .select('*')
-      .gte('date', selected.startDate)
-      .lte('date', selected.endDate)
+    const [{ data: attData }, { data: shiftData }] = await Promise.all([
+      supabase.from('attendance').select('*').gte('date', selected.startDate).lte('date', selected.endDate),
+      supabase.from('shifts').select('*')
+    ])
 
-    setRecords(data || [])
+    setRecords(attData || [])
+    setShifts(shiftData || [])
     setLoading(false)
   }
 
@@ -472,10 +474,22 @@ function AttendanceReport({ employees, supabase }) {
     return Math.round(mins / 60 * 10) / 10
   }
 
-  const getEmployeeHours = (employeeId) => {
+  const calcScheduledHours = (startTime, endTime) => {
+    if (!startTime || !endTime) return 0
+    const [inH, inM] = startTime.split(':').map(Number)
+    const [outH, outM] = endTime.split(':').map(Number)
+    let mins = (outH * 60 + outM) - (inH * 60 + inM)
+    if (mins < 0) mins += 24 * 60
+    return Math.round(mins / 60 * 10) / 10
+  }
+
+  const getEmployeeData = (employeeId) => {
     const empRecords = records.filter(r => r.employee_id === employeeId)
-    const total = empRecords.reduce((sum, r) => sum + calcHours(r.check_in, r.check_out), 0)
-    return { total, records: empRecords }
+    const empShifts = shifts.filter(s => s.employee_id === employeeId)
+    const actualHours = empRecords.reduce((sum, r) => sum + calcHours(r.check_in, r.check_out), 0)
+    const scheduledHours = empShifts.reduce((sum, s) => sum + calcScheduledHours(s.start_time, s.end_time), 0)
+    const diff = Math.round((actualHours - scheduledHours) * 10) / 10
+    return { actualHours, scheduledHours, diff, records: empRecords, empShifts }
   }
 
   const weekOptions = getWeekOptions()
@@ -483,19 +497,15 @@ function AttendanceReport({ employees, supabase }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Toggle */}
+      {/* Toggle Weekly/Monthly */}
       <div style={{ display: 'flex', background: 'white', borderRadius: 12, padding: 6, gap: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
         {['weekly', 'monthly'].map(v => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            style={{
-              flex: 1, padding: 10, borderRadius: 8,
-              background: view === v ? '#44ab51' : 'transparent',
-              color: view === v ? 'white' : '#888',
-              fontWeight: 600, fontSize: 14
-            }}
-          >
+          <button key={v} onClick={() => setView(v)} style={{
+            flex: 1, padding: 10, borderRadius: 8,
+            background: view === v ? '#44ab51' : 'transparent',
+            color: view === v ? 'white' : '#888',
+            fontWeight: 600, fontSize: 14
+          }}>
             {v === 'weekly' ? '📅 Weekly' : '📆 Monthly'}
           </button>
         ))}
@@ -517,17 +527,65 @@ function AttendanceReport({ employees, supabase }) {
         </select>
       </div>
 
+      {/* Comparison Toggle */}
+      <div
+        onClick={() => setShowComparison(!showComparison)}
+        style={{
+          background: showComparison ? '#f0faf0' : 'white', borderRadius: 12, padding: 16,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)', cursor: 'pointer',
+          border: `2px solid ${showComparison ? '#44ab51' : '#eee'}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}
+      >
+        <div>
+          <p style={{ fontWeight: 700, fontSize: 14 }}>📊 Scheduled vs Actual Hours</p>
+          <p style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Compare planned shifts with real check-in hours</p>
+        </div>
+        <span style={{ fontSize: 20 }}>{showComparison ? '✅' : '⬜'}</span>
+      </div>
+
       {/* Employee Cards */}
-      {loading ? <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>Loading...</div> : employees.map(emp => {
-        const { total, records: empRecords } = getEmployeeHours(emp.id)
+      {loading ? (
+        <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>Loading...</div>
+      ) : employees.map(emp => {
+        const { actualHours, scheduledHours, diff, records: empRecords } = getEmployeeData(emp.id)
         return (
           <div key={emp.id} style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            {/* Employee Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <span style={{ fontWeight: 700, fontSize: 15 }}>{emp.name}</span>
               <span style={{ background: '#f0faf0', color: '#44ab51', fontWeight: 700, padding: '4px 12px', borderRadius: 20, fontSize: 14 }}>
-                {total} hrs
+                {actualHours} hrs worked
               </span>
             </div>
+
+            {/* Comparison Row */}
+            {showComparison && (
+              <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                <div style={{ flex: 1, background: '#f9f9f9', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 11, color: '#aaa', marginBottom: 2 }}>Scheduled</p>
+                  <p style={{ fontWeight: 700, fontSize: 16, color: '#555' }}>{scheduledHours} hrs</p>
+                </div>
+                <div style={{ flex: 1, background: '#f9f9f9', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 11, color: '#aaa', marginBottom: 2 }}>Actual</p>
+                  <p style={{ fontWeight: 700, fontSize: 16, color: '#44ab51' }}>{actualHours} hrs</p>
+                </div>
+                <div style={{
+                  flex: 1, borderRadius: 8, padding: '10px 14px', textAlign: 'center',
+                  background: diff === 0 ? '#f0faf0' : diff > 0 ? '#fff8e1' : '#fff0f0'
+                }}>
+                  <p style={{ fontSize: 11, color: '#aaa', marginBottom: 2 }}>Difference</p>
+                  <p style={{
+                    fontWeight: 700, fontSize: 16,
+                    color: diff === 0 ? '#44ab51' : diff > 0 ? '#f0a500' : '#e44'
+                  }}>
+                    {diff > 0 ? `+${diff}` : diff} hrs
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Daily Records */}
             {empRecords.length === 0 ? (
               <p style={{ color: '#aaa', fontSize: 13 }}>No check-ins recorded</p>
             ) : (
