@@ -589,13 +589,84 @@ function AttendanceReport({ employees, supabase }) {
             {empRecords.length === 0 ? (
               <p style={{ color: '#aaa', fontSize: 13 }}>No check-ins recorded</p>
             ) : (
-              empRecords.map(r => (
-                <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid #f0f0f0', fontSize: 13 }}>
-                  <span style={{ color: '#666' }}>{r.date}</span>
-                  <span>{r.check_in || '—'} → {r.check_out || '—'}</span>
-                  <span style={{ color: '#44ab51', fontWeight: 600 }}>{calcHours(r.check_in, r.check_out)} hrs</span>
-                </div>
-              ))
+            empRecords.map(r => (
+  <AttendanceRow key={r.id} record={r} supabase={supabase} onUpdate={fetchRecords} />
+))
+function AttendanceRow({ record, supabase, onUpdate }) {
+  const [editing, setEditing] = useState(false)
+  const [checkIn, setCheckIn] = useState(record.check_in || '')
+  const [checkOut, setCheckOut] = useState(record.check_out || '')
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    setSaving(true)
+    await supabase.from('attendance').update({
+      check_in: checkIn || null,
+      check_out: checkOut || null
+    }).eq('id', record.id)
+    setSaving(false)
+    setEditing(false)
+    onUpdate()
+  }
+
+  if (editing) {
+    return (
+      <div style={{ padding: '10px 0', borderTop: '1px solid #f0f0f0' }}>
+        <p style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>{record.date}</p>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div>
+            <label style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 2 }}>Check In</label>
+            <input
+              type="time"
+              value={checkIn}
+              onChange={e => setCheckIn(e.target.value)}
+              style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 2 }}>Check Out</label>
+            <input
+              type="time"
+              value={checkOut}
+              onChange={e => setCheckOut(e.target.value)}
+              style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
+            <button onClick={() => setEditing(false)} style={{ background: '#f0f0f0', color: '#333', padding: '6px 12px', fontSize: 12 }}>Cancel</button>
+            <button onClick={save} disabled={saving} style={{ background: '#44ab51', color: 'white', padding: '6px 12px', fontSize: 12 }}>
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderTop: '1px solid #f0f0f0', fontSize: 13 }}>
+      <span style={{ color: '#666' }}>{record.date}</span>
+      <span>{record.check_in || '—'} → {record.check_out || '—'}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ color: '#44ab51', fontWeight: 600 }}>
+          {record.check_in && record.check_out ? (() => {
+            const [inH, inM] = record.check_in.split(':').map(Number)
+            const [outH, outM] = record.check_out.split(':').map(Number)
+            let mins = (outH * 60 + outM) - (inH * 60 + inM)
+            if (mins < 0) mins += 24 * 60
+            return Math.round(mins / 60 * 10) / 10
+          })() : 0} hrs
+        </span>
+        <button
+          onClick={() => setEditing(true)}
+          style={{ background: '#f0f0f0', color: '#555', padding: '4px 10px', fontSize: 12 }}
+        >
+          ✏️ Edit
+        </button>
+      </div>
+    </div>
+  )
+}
             )}
           </div>
         )
