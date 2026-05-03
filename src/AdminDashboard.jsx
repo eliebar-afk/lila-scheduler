@@ -375,7 +375,7 @@ const schedule = JSON.parse(clean)
                 onChange={e => setEditShift({ ...editShift, start_time: e.target.value })}
                 style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}
               >
-                {HOURS.map(h => <option key={h}>{h}</option>)}
+              {(editShift.day === 'Friday' || editShift.day === 'Saturday' ? HOURS_LATE : HOURS).map(h => <option key={h}>{h}</option>)}
               </select>
             </div>
 
@@ -386,7 +386,7 @@ const schedule = JSON.parse(clean)
                 onChange={e => setEditShift({ ...editShift, end_time: e.target.value })}
                 style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}
               >
-                {HOURS.map(h => <option key={h}>{h}</option>)}
+              {(editShift.day === 'Friday' || editShift.day === 'Saturday' ? HOURS_LATE : HOURS).map(h => <option key={h}>{h}</option>)}
               </select>
             </div>
 

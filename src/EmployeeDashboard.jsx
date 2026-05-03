@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const HOURS = ['11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00', '00:00']
+const HOURS_LATE = ['11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00', '00:00', '01:00', '02:00']
 
 // 🔧 Replace this with your restaurant's public IP later
 const RESTAURANT_IP = '31.187.153.185'
@@ -292,7 +293,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                         onChange={e => updateTime(day, 'start', e.target.value)}
                         style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}
                       >
-                        {HOURS.map(h => <option key={h}>{h}</option>)}
+                        {(day === 'Friday' || day === 'Saturday' ? HOURS_LATE : HOURS).map(h => <option key={h}>{h}</option>)}
                       </select>
                     </div>
                     <div style={{ flex: 1 }}>
@@ -302,7 +303,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                         onChange={e => updateTime(day, 'end', e.target.value)}
                         style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}
                       >
-                        {HOURS.map(h => <option key={h}>{h}</option>)}
+                        {(day === 'Friday' || day === 'Saturday' ? HOURS_LATE : HOURS).map(h => <option key={h}>{h}</option>)}
                       </select>
                     </div>
                   </div>
