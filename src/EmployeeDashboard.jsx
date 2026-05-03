@@ -71,7 +71,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
       {/* Header */}
-      <div style={{ background: '#e8723a', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: '#44ab51', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ color: 'white', fontSize: 20, fontWeight: 800 }}>🍽 Lila</h1>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>Hi, {user.name}!</p>
@@ -90,7 +90,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
             schedule.map(s => (
               <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
                 <span style={{ fontWeight: 600 }}>{s.day}</span>
-                <span style={{ color: '#e8723a', fontWeight: 600 }}>{s.start_time} – {s.end_time}</span>
+                <span style={{ color: '#44ab51', fontWeight: 600 }}>{s.start_time} – {s.end_time}</span>
               </div>
             ))
           )}
@@ -109,12 +109,12 @@ export default function EmployeeDashboard({ user, onLogout }) {
                   display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
                   padding: '10px 14px', borderRadius: 8,
                   background: preferences[day] ? '#fff4ef' : '#f9f9f9',
-                  border: `2px solid ${preferences[day] ? '#e8723a' : '#eee'}`
+                  border: `2px solid ${preferences[day] ? '#44ab51' : '#eee'}`
                 }}
               >
                 <div style={{
                   width: 20, height: 20, borderRadius: 6,
-                  background: preferences[day] ? '#e8723a' : '#ddd',
+                  background: preferences[day] ? '#44ab51' : '#ddd',
                   display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
                   {preferences[day] && <span style={{ color: 'white', fontSize: 12 }}>✓</span>}
@@ -151,7 +151,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
           <button
             onClick={savePreferences}
-            style={{ width: '100%', background: '#e8723a', color: 'white', padding: 14, fontSize: 15, marginTop: 8 }}
+            style={{ width: '100%', background: '#44ab51', color: 'white', padding: 14, fontSize: 15, marginTop: 8 }}
           >
             {saved ? '✓ Saved!' : 'Save Availability'}
           </button>
