@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const HOURS = ['11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00', '00:00']
+const HOURS_LATE = ['11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00', '00:00', '01:00', '02:00']
 
 export default function AdminDashboard({ user, onLogout }) {
   const [employees, setEmployees] = useState([])
@@ -14,7 +15,6 @@ export default function AdminDashboard({ user, onLogout }) {
   const [loading, setLoading] = useState(true)
   const [aiLoading, setAiLoading] = useState(false)
   const [editShift, setEditShift] = useState(null)
-  const [minStaff, setMinStaff] = useState(2)
   const [restaurantRules, setRestaurantRules] = useState('')
   const [weekNotes, setWeekNotes] = useState('')
   const [settingsSaved, setSettingsSaved] = useState(false)
@@ -106,7 +106,6 @@ export default function AdminDashboard({ user, onLogout }) {
 
     const prompt = `You are a restaurant scheduling assistant for Lila restaurant.
 The restaurant is open every day from 11:00 to 00:00.
-Minimum staff required per day: ${minStaff}
 
 PERMANENT RESTAURANT RULES (always follow these):
 ${restaurantRules || 'No specific rules set.'}
@@ -124,28 +123,26 @@ Respond ONLY with a valid JSON array, no explanation, no markdown, like this:
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
-  },
-  body: JSON.stringify({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
-    max_tokens: 1000
-  })
-})
-const data = await response.json()
-console.log('OpenAI response:', JSON.stringify(data))
-if (!data.choices || data.choices.length === 0) {
-  throw new Error('Empty response from AI: ' + JSON.stringify(data))
-}
-const text = data.choices[0].message.content
-const clean = text.replace(/```json|```/g, '').trim()
-const schedule = JSON.parse(clean)
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1000
+        })
+      })
+      const data = await response.json()
+      if (!data.choices || data.choices.length === 0) {
+        throw new Error('Empty response from AI: ' + JSON.stringify(data))
+      }
+      const text = data.choices[0].message.content
+      const clean = text.replace(/```json|```/g, '').trim()
+      const schedule = JSON.parse(clean)
 
-      const { error: deleteError } = await supabase.from('shifts').delete().gt('created_at', '2000-01-01')
-      console.log('Delete error:', deleteError)
+      await supabase.from('shifts').delete().gt('created_at', '2000-01-01')
 
       const rows = schedule.map(s => {
         const emp = employees.find(e => e.name === s.employee_name)
@@ -153,7 +150,6 @@ const schedule = JSON.parse(clean)
         return { employee_id: emp.id, day: s.day, start_time: s.start_time, end_time: s.end_time }
       }).filter(Boolean)
 
-      console.log('Inserting rows:', rows)
       if (rows.length > 0) await supabase.from('shifts').insert(rows)
       await fetchAll()
     } catch (e) {
@@ -177,17 +173,13 @@ const schedule = JSON.parse(clean)
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #eee' }}>
+      <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #eee', overflowX: 'auto' }}>
         {['schedule', 'attendance', 'settings', 'employees'].map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            style={{
-              flex: 1, padding: 14, background: 'none', borderRadius: 0,
-              borderBottom: tab === t ? '3px solid #44ab51' : '3px solid transparent',
-              color: tab === t ? '#44ab51' : '#888', fontWeight: 600, fontSize: 14
-            }}
-          >
+          <button key={t} onClick={() => setTab(t)} style={{
+            flex: 1, padding: 14, background: 'none', borderRadius: 0, whiteSpace: 'nowrap',
+            borderBottom: tab === t ? '3px solid #44ab51' : '3px solid transparent',
+            color: tab === t ? '#44ab51' : '#888', fontWeight: 600, fontSize: 13
+          }}>
             {t === 'schedule' ? '📅 Schedule' : t === 'attendance' ? '🕐 Hours' : t === 'settings' ? '⚙️ Instructions' : '👥 Employees'}
           </button>
         ))}
@@ -200,13 +192,8 @@ const schedule = JSON.parse(clean)
           <>
             <div style={{ background: 'white', borderRadius: 12, padding: 20, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>🤖 AI Schedule Generator</h2>
-              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>Set your minimum staffing and let AI build the schedule based on employee availability.</p>
-            
-              <button
-                onClick={generateAISchedule}
-                disabled={aiLoading}
-                style={{ background: '#44ab51', color: 'white', padding: '12px 24px' }}
-              >
+              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>Let AI build the schedule based on employee availability and your instructions.</p>
+              <button onClick={generateAISchedule} disabled={aiLoading} style={{ background: '#44ab51', color: 'white', padding: '12px 24px' }}>
                 {aiLoading ? '⏳ Generating...' : '✨ Generate Schedule with AI'}
               </button>
             </div>
@@ -237,8 +224,8 @@ const schedule = JSON.parse(clean)
                               onClick={() => setEditShift(shift || { employee_id: emp.id, day, start_time: pref?.start_time || '11:00', end_time: pref?.end_time || '17:00' })}
                               style={{
                                 cursor: 'pointer', borderRadius: 6, padding: '4px 2px',
-                                background: shift ? '#fff4ef' : pref ? '#f0faf0' : '#f9f9f9',
-                                border: `1px solid ${shift ? '#e8723a' : pref ? '#86c98e' : '#eee'}`,
+                                background: shift ? '#f0faf0' : pref ? '#f0faf0' : '#f9f9f9',
+                                border: `1px solid ${shift ? '#44ab51' : pref ? '#86c98e' : '#eee'}`,
                                 minHeight: 36, display: 'flex', flexDirection: 'column',
                                 alignItems: 'center', justifyContent: 'center'
                               }}
@@ -262,21 +249,23 @@ const schedule = JSON.parse(clean)
                 </tbody>
               </table>
               <p style={{ fontSize: 12, color: '#aaa', marginTop: 12 }}>
-                🟠 Scheduled &nbsp;&nbsp; 🟢 Available (not scheduled) &nbsp;&nbsp; Click any cell to add/edit a shift
+                🟢 Scheduled &nbsp;&nbsp; 🟢 Available (not scheduled) &nbsp;&nbsp; Click any cell to add/edit a shift
               </p>
             </div>
           </>
         )}
-{/* Attendance Tab */}
+
+        {/* Attendance Tab */}
         {tab === 'attendance' && (
           <AttendanceReport employees={employees} supabase={supabase} />
         )}
+
         {/* Instructions Tab */}
         {tab === 'settings' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>📋 Permanent Restaurant Rules</h2>
-              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>These rules apply every week when generating the schedule. Example: "Always have at least 2 people on Saturday night", "Elie never works Mondays".</p>
+              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>These rules apply every week when generating the schedule.</p>
               <textarea
                 value={restaurantRules}
                 onChange={e => setRestaurantRules(e.target.value)}
@@ -284,10 +273,9 @@ const schedule = JSON.parse(clean)
                 style={{ width: '100%', height: 160, padding: 12, borderRadius: 8, border: '1px solid #ddd', fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }}
               />
             </div>
-
             <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>🗓 This Week's Special Instructions</h2>
-              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>One-time notes for this week only. Example: "Christmas week, restaurant closes at 20:00", "We need extra staff on Friday".</p>
+              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>One-time notes for this week only.</p>
               <textarea
                 value={weekNotes}
                 onChange={e => setWeekNotes(e.target.value)}
@@ -295,11 +283,7 @@ const schedule = JSON.parse(clean)
                 style={{ width: '100%', height: 120, padding: 12, borderRadius: 8, border: '1px solid #ddd', fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }}
               />
             </div>
-
-            <button
-              onClick={saveSettings}
-              style={{ background: '#44ab51', color: 'white', padding: 14, fontSize: 15 }}
-            >
+            <button onClick={saveSettings} style={{ background: '#44ab51', color: 'white', padding: 14, fontSize: 15 }}>
               {settingsSaved ? '✓ Saved!' : 'Save Instructions'}
             </button>
           </div>
@@ -309,44 +293,21 @@ const schedule = JSON.parse(clean)
         {tab === 'employees' && (
           <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>👥 Manage Employees</h2>
-
             <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
-              <input
-                placeholder="Employee name"
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                style={{ flex: 2, minWidth: 120 }}
-              />
-              <input
-                placeholder="4-digit PIN"
-                maxLength={4}
-                value={newPin}
-                onChange={e => setNewPin(e.target.value)}
-                style={{ flex: 1, minWidth: 100 }}
-              />
-              <button onClick={addEmployee} style={{ background: '#44ab51', color: 'white' }}>
-                + Add
-              </button>
+              <input placeholder="Employee name" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2, minWidth: 120 }} />
+              <input placeholder="4-digit PIN" maxLength={4} value={newPin} onChange={e => setNewPin(e.target.value)} style={{ flex: 1, minWidth: 100 }} />
+              <button onClick={addEmployee} style={{ background: '#44ab51', color: 'white' }}>+ Add</button>
             </div>
-
             {employees.length === 0 ? (
               <p style={{ color: '#888', fontSize: 14 }}>No employees yet. Add one above!</p>
             ) : (
               employees.map(emp => (
-                <div key={emp.id} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '12px 0', borderBottom: '1px solid #f0f0f0'
-                }}>
+                <div key={emp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
                   <div>
                     <span style={{ fontWeight: 600 }}>{emp.name}</span>
                     <span style={{ color: '#aaa', fontSize: 13, marginLeft: 10 }}>PIN: {emp.pin}</span>
                   </div>
-                  <button
-                    onClick={() => removeEmployee(emp.id)}
-                    style={{ background: '#fee', color: '#e44', fontSize: 13, padding: '6px 12px' }}
-                  >
-                    Remove
-                  </button>
+                  <button onClick={() => removeEmployee(emp.id)} style={{ background: '#fee', color: '#e44', fontSize: 13, padding: '6px 12px' }}>Remove</button>
                 </div>
               ))
             )}
@@ -356,45 +317,27 @@ const schedule = JSON.parse(clean)
 
       {/* Edit Shift Modal */}
       {editShift && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100
-        }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: 'white', borderRadius: 16, padding: 28, width: '90%', maxWidth: 340 }}>
-            <h3 style={{ fontWeight: 700, marginBottom: 4 }}>
-              {editShift.id ? 'Edit Shift' : 'Add Shift'}
-            </h3>
+            <h3 style={{ fontWeight: 700, marginBottom: 4 }}>{editShift.id ? 'Edit Shift' : 'Add Shift'}</h3>
             <p style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>
               {employees.find(e => e.id === editShift.employee_id)?.name} — {editShift.day}
             </p>
-
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>Start Time</label>
-              <select
-                value={editShift.start_time}
-                onChange={e => setEditShift({ ...editShift, start_time: e.target.value })}
-                style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}
-              >
-              {(editShift.day === 'Friday' || editShift.day === 'Saturday' ? HOURS_LATE : HOURS).map(h => <option key={h}>{h}</option>)}
+              <select value={editShift.start_time} onChange={e => setEditShift({ ...editShift, start_time: e.target.value })} style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}>
+                {(editShift.day === 'Friday' || editShift.day === 'Saturday' ? HOURS_LATE : HOURS).map(h => <option key={h}>{h}</option>)}
               </select>
             </div>
-
             <div style={{ marginBottom: 24 }}>
               <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>End Time</label>
-              <select
-                value={editShift.end_time}
-                onChange={e => setEditShift({ ...editShift, end_time: e.target.value })}
-                style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}
-              >
-              {(editShift.day === 'Friday' || editShift.day === 'Saturday' ? HOURS_LATE : HOURS).map(h => <option key={h}>{h}</option>)}
+              <select value={editShift.end_time} onChange={e => setEditShift({ ...editShift, end_time: e.target.value })} style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}>
+                {(editShift.day === 'Friday' || editShift.day === 'Saturday' ? HOURS_LATE : HOURS).map(h => <option key={h}>{h}</option>)}
               </select>
             </div>
-
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setEditShift(null)} style={{ flex: 1, background: '#f0f0f0', color: '#333' }}>Cancel</button>
-              {editShift.id && (
-                <button onClick={() => deleteShift(editShift.id)} style={{ flex: 1, background: '#fee', color: '#e44' }}>Delete</button>
-              )}
+              {editShift.id && <button onClick={() => deleteShift(editShift.id)} style={{ flex: 1, background: '#fee', color: '#e44' }}>Delete</button>}
               <button onClick={saveShift} style={{ flex: 1, background: '#44ab51', color: 'white' }}>Save</button>
             </div>
           </div>
@@ -454,12 +397,10 @@ function AttendanceReport({ employees, supabase }) {
     setLoading(true)
     const options = view === 'weekly' ? getWeekOptions() : getMonthOptions()
     const selected = options[view === 'weekly' ? selectedWeek : selectedMonth]
-
     const [{ data: attData }, { data: shiftData }] = await Promise.all([
       supabase.from('attendance').select('*').gte('date', selected.startDate).lte('date', selected.endDate),
       supabase.from('shifts').select('*')
     ])
-
     setRecords(attData || [])
     setShifts(shiftData || [])
     setLoading(false)
@@ -489,7 +430,7 @@ function AttendanceReport({ employees, supabase }) {
     const actualHours = empRecords.reduce((sum, r) => sum + calcHours(r.check_in, r.check_out), 0)
     const scheduledHours = empShifts.reduce((sum, s) => sum + calcScheduledHours(s.start_time, s.end_time), 0)
     const diff = Math.round((actualHours - scheduledHours) * 10) / 10
-    return { actualHours, scheduledHours, diff, records: empRecords, empShifts }
+    return { actualHours, scheduledHours, diff, records: empRecords }
   }
 
   const weekOptions = getWeekOptions()
@@ -497,7 +438,6 @@ function AttendanceReport({ employees, supabase }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Toggle Weekly/Monthly */}
       <div style={{ display: 'flex', background: 'white', borderRadius: 12, padding: 6, gap: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
         {['weekly', 'monthly'].map(v => (
           <button key={v} onClick={() => setView(v)} style={{
@@ -511,7 +451,6 @@ function AttendanceReport({ employees, supabase }) {
         ))}
       </div>
 
-      {/* Dropdown */}
       <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
         <label style={{ fontSize: 13, fontWeight: 600, color: '#555', display: 'block', marginBottom: 8 }}>
           {view === 'weekly' ? 'Select Week' : 'Select Month'}
@@ -527,16 +466,12 @@ function AttendanceReport({ employees, supabase }) {
         </select>
       </div>
 
-      {/* Comparison Toggle */}
-      <div
-        onClick={() => setShowComparison(!showComparison)}
-        style={{
-          background: showComparison ? '#f0faf0' : 'white', borderRadius: 12, padding: 16,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)', cursor: 'pointer',
-          border: `2px solid ${showComparison ? '#44ab51' : '#eee'}`,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-        }}
-      >
+      <div onClick={() => setShowComparison(!showComparison)} style={{
+        background: showComparison ? '#f0faf0' : 'white', borderRadius: 12, padding: 16,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)', cursor: 'pointer',
+        border: `2px solid ${showComparison ? '#44ab51' : '#eee'}`,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+      }}>
         <div>
           <p style={{ fontWeight: 700, fontSize: 14 }}>📊 Scheduled vs Actual Hours</p>
           <p style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Compare planned shifts with real check-in hours</p>
@@ -544,22 +479,18 @@ function AttendanceReport({ employees, supabase }) {
         <span style={{ fontSize: 20 }}>{showComparison ? '✅' : '⬜'}</span>
       </div>
 
-      {/* Employee Cards */}
       {loading ? (
         <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>Loading...</div>
       ) : employees.map(emp => {
         const { actualHours, scheduledHours, diff, records: empRecords } = getEmployeeData(emp.id)
         return (
           <div key={emp.id} style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            {/* Employee Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <span style={{ fontWeight: 700, fontSize: 15 }}>{emp.name}</span>
               <span style={{ background: '#f0faf0', color: '#44ab51', fontWeight: 700, padding: '4px 12px', borderRadius: 20, fontSize: 14 }}>
                 {actualHours} hrs worked
               </span>
             </div>
-
-            {/* Comparison Row */}
             {showComparison && (
               <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                 <div style={{ flex: 1, background: '#f9f9f9', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
@@ -570,28 +501,28 @@ function AttendanceReport({ employees, supabase }) {
                   <p style={{ fontSize: 11, color: '#aaa', marginBottom: 2 }}>Actual</p>
                   <p style={{ fontWeight: 700, fontSize: 16, color: '#44ab51' }}>{actualHours} hrs</p>
                 </div>
-                <div style={{
-                  flex: 1, borderRadius: 8, padding: '10px 14px', textAlign: 'center',
-                  background: diff === 0 ? '#f0faf0' : diff > 0 ? '#fff8e1' : '#fff0f0'
-                }}>
+                <div style={{ flex: 1, borderRadius: 8, padding: '10px 14px', textAlign: 'center', background: diff === 0 ? '#f0faf0' : diff > 0 ? '#fff8e1' : '#fff0f0' }}>
                   <p style={{ fontSize: 11, color: '#aaa', marginBottom: 2 }}>Difference</p>
-                  <p style={{
-                    fontWeight: 700, fontSize: 16,
-                    color: diff === 0 ? '#44ab51' : diff > 0 ? '#f0a500' : '#e44'
-                  }}>
+                  <p style={{ fontWeight: 700, fontSize: 16, color: diff === 0 ? '#44ab51' : diff > 0 ? '#f0a500' : '#e44' }}>
                     {diff > 0 ? `+${diff}` : diff} hrs
                   </p>
                 </div>
               </div>
             )}
-
-            {/* Daily Records */}
             {empRecords.length === 0 ? (
               <p style={{ color: '#aaa', fontSize: 13 }}>No check-ins recorded</p>
             ) : (
-            empRecords.map(r => (
-  <AttendanceRow key={r.id} record={r} supabase={supabase} onUpdate={fetchRecords} />
-))
+              empRecords.map(r => (
+                <AttendanceRow key={r.id} record={r} supabase={supabase} onUpdate={fetchRecords} />
+              ))
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function AttendanceRow({ record, supabase, onUpdate }) {
   const [editing, setEditing] = useState(false)
   const [checkIn, setCheckIn] = useState(record.check_in || '')
@@ -616,21 +547,11 @@ function AttendanceRow({ record, supabase, onUpdate }) {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <div>
             <label style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 2 }}>Check In</label>
-            <input
-              type="time"
-              value={checkIn}
-              onChange={e => setCheckIn(e.target.value)}
-              style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}
-            />
+            <input type="time" value={checkIn} onChange={e => setCheckIn(e.target.value)} style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
           </div>
           <div>
             <label style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 2 }}>Check Out</label>
-            <input
-              type="time"
-              value={checkOut}
-              onChange={e => setCheckOut(e.target.value)}
-              style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}
-            />
+            <input type="time" value={checkOut} onChange={e => setCheckOut(e.target.value)} style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }} />
           </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
             <button onClick={() => setEditing(false)} style={{ background: '#f0f0f0', color: '#333', padding: '6px 12px', fontSize: 12 }}>Cancel</button>
@@ -657,20 +578,8 @@ function AttendanceRow({ record, supabase, onUpdate }) {
             return Math.round(mins / 60 * 10) / 10
           })() : 0} hrs
         </span>
-        <button
-          onClick={() => setEditing(true)}
-          style={{ background: '#f0f0f0', color: '#555', padding: '4px 10px', fontSize: 12 }}
-        >
-          ✏️ Edit
-        </button>
+        <button onClick={() => setEditing(true)} style={{ background: '#f0f0f0', color: '#555', padding: '4px 10px', fontSize: 12 }}>✏️ Edit</button>
       </div>
-    </div>
-  )
-}
-            )}
-          </div>
-        )
-      })}
     </div>
   )
 }
