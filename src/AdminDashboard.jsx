@@ -201,19 +201,11 @@ const schedule = JSON.parse(clean)
             <div style={{ background: 'white', borderRadius: 12, padding: 20, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>🤖 AI Schedule Generator</h2>
               <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>Set your minimum staffing and let AI build the schedule based on employee availability.</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-                <label style={{ fontSize: 14, fontWeight: 600 }}>Min staff per day:</label>
-                <input
-                  type="number" min={1} max={10}
-                  value={minStaff}
-                  onChange={e => setMinStaff(Number(e.target.value))}
-                  style={{ width: 70 }}
-                />
-              </div>
+            
               <button
                 onClick={generateAISchedule}
                 disabled={aiLoading}
-                style={{ background: '#e8723a', color: 'white', padding: '12px 24px' }}
+                style={{ background: '#3ad32c', color: 'white', padding: '12px 24px' }}
               >
                 {aiLoading ? '⏳ Generating...' : '✨ Generate Schedule with AI'}
               </button>
