@@ -445,13 +445,7 @@ const generateSchedule = async () => {
             {employees.length === 0 ? (
               <p style={{ color: '#888', fontSize: 14 }}>No employees yet. Add one above!</p>
             ) : employees.map(emp => (
-              <div key={emp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
-                <div>
-                  <span style={{ fontWeight: 600 }}>{emp.name}</span>
-                  <span style={{ color: '#aaa', fontSize: 13, marginLeft: 10 }}>PIN: {emp.pin}</span>
-                </div>
-                <button onClick={() => removeEmployee(emp.id)} style={{ background: '#fee', color: '#e44', fontSize: 13, padding: '6px 12px' }}>Remove</button>
-              </div>
+              <EmployeeRow key={emp.id} emp={emp} onRemove={removeEmployee} supabase={supabase} onUpdate={fetchAll} />
             ))}
           </div>
         )}
@@ -722,4 +716,58 @@ function AttendanceRow({ record, supabase, onUpdate }) {
       </div>
     </div>
   )
+  function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(emp.name)
+  const [pin, setPin] = useState(emp.pin)
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    if (!name.trim() || pin.length !== 4) return
+    setSaving(true)
+    await supabase.from('employees').update({ name: name.trim(), pin }).eq('id', emp.id)
+    setSaving(false)
+    setEditing(false)
+    onUpdate()
+  }
+
+  if (editing) {
+    return (
+      <div style={{ padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Name"
+            style={{ flex: 2, minWidth: 120 }}
+          />
+          <input
+            value={pin}
+            onChange={e => setPin(e.target.value)}
+            placeholder="4-digit PIN"
+            maxLength={4}
+            style={{ flex: 1, minWidth: 100 }}
+          />
+          <button onClick={() => setEditing(false)} style={{ background: '#f0f0f0', color: '#333', padding: '8px 12px', fontSize: 13 }}>Cancel</button>
+          <button onClick={save} disabled={saving} style={{ background: '#44ab51', color: 'white', padding: '8px 12px', fontSize: 13 }}>
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+      <div>
+        <span style={{ fontWeight: 600 }}>{emp.name}</span>
+        <span style={{ color: '#aaa', fontSize: 13, marginLeft: 10 }}>PIN: {emp.pin}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={() => setEditing(true)} style={{ background: '#f0f0f0', color: '#555', fontSize: 13, padding: '6px 12px' }}>✏️ Edit</button>
+        <button onClick={() => onRemove(emp.id)} style={{ background: '#fee', color: '#e44', fontSize: 13, padding: '6px 12px' }}>Remove</button>
+      </div>
+    </div>
+  )
+}
 }
