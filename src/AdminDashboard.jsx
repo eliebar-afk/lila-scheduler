@@ -716,6 +716,7 @@ function AttendanceRow({ record, supabase, onUpdate }) {
       </div>
     </div>
  )
+}
 
 function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
   const [editing, setEditing] = useState(false)
@@ -770,5 +771,4 @@ function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
       </div>
     </div>
   )
-}
 }
