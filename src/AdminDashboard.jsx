@@ -715,7 +715,8 @@ function AttendanceRow({ record, supabase, onUpdate }) {
         <button onClick={() => setEditing(true)} style={{ background: '#f0f0f0', color: '#555', padding: '4px 10px', fontSize: 12 }}>✏️ Edit</button>
       </div>
     </div>
-  )
+ )
+
 function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(emp.name)
