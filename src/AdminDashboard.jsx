@@ -4,7 +4,27 @@ import { supabase } from './supabase'
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30']
 const HOURS_LATE = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00']
-
+const getShiftColor = (startTime) => {
+  const colors = {
+    '11:00': '#4CAF50', '11:30': '#4CAF50',
+    '12:00': '#8BC34A', '12:30': '#8BC34A',
+    '13:00': '#CDDC39', '13:30': '#CDDC39',
+    '14:00': '#FFC107', '14:30': '#FFC107',
+    '15:00': '#FF9800', '15:30': '#FF9800',
+    '16:00': '#FF5722', '16:30': '#FF5722',
+    '17:00': '#F44336', '17:30': '#F44336',
+    '18:00': '#E91E63', '18:30': '#E91E63',
+    '19:00': '#9C27B0', '19:30': '#9C27B0',
+    '20:00': '#673AB7', '20:30': '#673AB7',
+    '21:00': '#3F51B5', '21:30': '#3F51B5',
+    '22:00': '#2196F3', '22:30': '#2196F3',
+    '23:00': '#03A9F4', '23:30': '#03A9F4',
+    '00:00': '#00BCD4', '00:30': '#00BCD4',
+    '01:00': '#009688', '01:30': '#009688',
+    '02:00': '#795548'
+  }
+  return colors[startTime] || '#44ab51'
+}
 export default function AdminDashboard({ user, onLogout }) {
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
@@ -266,9 +286,9 @@ const generateSchedule = async () => {
                               }}
                             >
                               {shift ? (
-                                <>
-                                  <span style={{ fontSize: 10, color: '#44ab51', fontWeight: 700 }}>{shift.start_time}</span>
-                                  <span style={{ fontSize: 10, color: '#44ab51' }}>{shift.end_time}</span>
+                                 <>
+                                  <span style={{ fontSize: 10, color: getShiftColor(shift.start_time), fontWeight: 700 }}>{shift.start_time}</span>
+                                  <span style={{ fontSize: 10, color: getShiftColor(shift.start_time) }}>{shift.end_time}</span>
                                 </>
                               ) : pref ? (
                                 <span style={{ fontSize: 10, color: '#86c98e' }}>avail</span>
