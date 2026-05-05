@@ -279,8 +279,8 @@ const generateSchedule = async () => {
                               onClick={() => setEditShift(shift || { employee_id: emp.id, day, start_time: pref?.start_time || '11:00', end_time: pref?.end_time || '17:00' })}
                               style={{
                                 cursor: 'pointer', borderRadius: 6, padding: '4px 2px',
-                                background: shift ? '#f0faf0' : pref ? '#f9fff9' : '#f9f9f9',
-                                border: `1px solid ${shift ? '#44ab51' : pref ? '#86c98e' : '#eee'}`,
+                                background: shift ? `${getShiftColor(shift.start_time)}22` : pref ? '#f9fff9' : '#f9f9f9',background: shift ? `${getShiftColor(shift.start_time)}15` : pref ? '#f9fff9' : '#f9f9f9',
+                                border: `1px solid ${shift ? getShiftColor(shift.start_time) : pref ? '#86c98e' : '#eee'}`,
                                 minHeight: 36, display: 'flex', flexDirection: 'column',
                                 alignItems: 'center', justifyContent: 'center'
                               }}
