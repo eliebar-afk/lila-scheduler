@@ -134,7 +134,7 @@ export default function AdminDashboard({ user, onLogout }) {
     return ss < re && se > rs
   }
 
-  const generateSchedule = async () => {
+const generateSchedule = async () => {
     await supabase.from('shifts').delete().gt('created_at', '2000-01-01')
 
     const newShifts = []
@@ -149,11 +149,11 @@ export default function AdminDashboard({ user, onLogout }) {
 
       const alreadyAssigned = newShifts.filter(s => s.day === rule.day).map(s => s.employee_id)
       const unassigned = available.filter(e => !alreadyAssigned.includes(e.id))
-
       const toAssign = unassigned.slice(0, rule.max_staff)
+      const totalForDay = [...alreadyAssigned, ...toAssign.map(e => e.id)]
 
-      if (toAssign.length < rule.min_staff) {
-        warnings.push(`⚠️ ${rule.day} ${rule.start_time}–${rule.end_time}: Need ${rule.min_staff} staff, only ${toAssign.length} available`)
+      if (totalForDay.length < rule.min_staff) {
+        warnings.push(`⚠️ ${rule.day}: Need at least ${rule.min_staff} staff for ${rule.start_time}–${rule.end_time}, only ${totalForDay.length} available`)
       }
 
       for (const emp of toAssign) {
