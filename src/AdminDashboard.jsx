@@ -125,9 +125,9 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const overlaps = (rStart, rEnd, sStart, sEnd) => {
-    const rs = timeToMins(rStart)
+    let rs = timeToMins(rStart)
     let re = timeToMins(rEnd)
-    const ss = timeToMins(sStart)
+    let ss = timeToMins(sStart)
     let se = timeToMins(sEnd)
     if (re <= rs) re += 24 * 60
     if (se <= ss) se += 24 * 60
