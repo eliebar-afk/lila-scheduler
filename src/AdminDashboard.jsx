@@ -220,13 +220,13 @@ const generateSchedule = async () => {
 
       {/* Tabs */}
       <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #eee', overflowX: 'auto' }}>
-        {['schedule', 'rules', 'attendance', 'settings', 'employees'].map(t => (
+        {['schedule', 'rules', 'attendance', 'employees'].map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             flex: 1, padding: 14, background: 'none', borderRadius: 0, whiteSpace: 'nowrap',
             borderBottom: tab === t ? '3px solid #44ab51' : '3px solid transparent',
             color: tab === t ? '#44ab51' : '#888', fontWeight: 600, fontSize: 12
           }}>
-            {t === 'schedule' ? '📅 Schedule' : t === 'rules' ? '📋 Rules' : t === 'attendance' ? '🕐 Hours' : t === 'settings' ? '⚙️ Notes' : '👥 Staff'}
+            {t === 'schedule' ? '📅 Schedule' : t === 'rules' ? '📋 Rules' : t === 'attendance' ? '🕐 Hours' : '👥 Staff'}
           </button>
         ))}
       </div>
