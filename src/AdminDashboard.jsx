@@ -131,6 +131,9 @@ export default function AdminDashboard({ user, onLogout }) {
     let se = timeToMins(sEnd)
     if (re <= rs) re += 24 * 60
     if (se <= ss) se += 24 * 60
+    // If rule starts after midnight (00:00-02:00), 
+    // check if employee shift covers that period
+    if (rs < 180 && rs >= 0) rs += 24 * 60
     return ss < re && se > rs
   }
 
