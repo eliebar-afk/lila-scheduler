@@ -765,7 +765,7 @@ function AttendanceRow({ record, supabase, onUpdate }) {
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={() => setEditing(true)} style={{ background: '#f0f0f0', color: '#555', fontSize: 13, padding: '6px 12px' }}>✏️ Edit</button>
-        <button onClick={() => onRemove(emp.id)} style={{ background: '#fee', color: '#e44', fontSize: 13, padding: '6px 12px' }}>Remove</button>
+      <button onClick={() => onRemove(emp.id)} style={{ background: '#fee', color: '#e44', fontSize: 13, padding: '6px 12px' }}>Remove</button>
       </div>
     </div>
   )
