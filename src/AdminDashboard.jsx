@@ -716,7 +716,7 @@ function AttendanceRow({ record, supabase, onUpdate }) {
       </div>
     </div>
   )
-  function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
+function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(emp.name)
   const [pin, setPin] = useState(emp.pin)
