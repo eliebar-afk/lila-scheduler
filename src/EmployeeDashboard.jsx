@@ -25,7 +25,7 @@ const getShiftColor = (startTime) => {
   }
   return colors[startTime] || '#44ab51'
 }
-const RESTAURANT_IP = '31.187.153.185'
+const RESTAURANT_IP = '62.195.229.217'
 
 export default function EmployeeDashboard({ user, onLogout }) {
   const [preferences, setPreferences] = useState({})
