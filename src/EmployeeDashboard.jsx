@@ -194,7 +194,13 @@ export default function EmployeeDashboard({ user, onLogout }) {
         {/* Schedule Tab */}
         {tab === 'schedule' && (
           <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>📅 Team Schedule This Week</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
+  📅 Team Schedule — Week {(() => {
+    const d = new Date()
+    const startOfYear = new Date(d.getFullYear(), 0, 1)
+    return Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
+  })()}
+</h2>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr>
