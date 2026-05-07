@@ -195,7 +195,7 @@ const generateSchedule = async () => {
     )
 
     if (uniqueShifts.length > 0) {
-      await supabase.from('shifts').insert(uniqueShifts)
+      await supabase.from('shifts').insert(uniqueShifts.map(s => ({ ...s, published: false })))
     }
 
     setScheduleWarnings(warnings)
@@ -242,6 +242,10 @@ const generateSchedule = async () => {
               <button onClick={generateSchedule} style={{ background: '#44ab51', color: 'white', padding: '12px 24px' }}>
                 ✨ Generate Schedule
               </button>
+              <button onClick={publishSchedule} style={{ background: '#1976d2', color: 'white', padding: '12px 24px', marginLeft: 10 }}>
+                🚀 Publish Schedule
+              </button>
+             
 
               {scheduleWarnings.length > 0 && (
                 <div style={{ marginTop: 16, padding: 14, background: '#fff8e1', borderRadius: 8, border: '1px solid #ffc107' }}>
@@ -254,7 +258,13 @@ const generateSchedule = async () => {
             </div>
 
             <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Weekly Schedule</h2>
+              <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
+  Weekly Schedule — Week {(() => {
+    const d = new Date()
+    const startOfYear = new Date(d.getFullYear(), 0, 1)
+    return Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
+  })()}
+</h2>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr>
@@ -504,6 +514,12 @@ const generateSchedule = async () => {
     </div>
   )
 }
+
+const publishSchedule = async () => {
+    await supabase.from('shifts').update({ published: true }).eq('published', false)
+    alert('Schedule published! Employees can now see their shifts.')
+    fetchAll()
+  }
 
 function AttendanceReport({ employees, supabase, shifts }) {
   const [records, setRecords] = useState([])
