@@ -2,29 +2,31 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30']
+const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00']
 const HOURS_LATE = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00']
+
 const getShiftColor = (startTime) => {
   const colors = {
     '11:00': '#4CAF50', '11:30': '#4CAF50',
-    '12:00': '#03A9F4', '12:30': '#03A9F4',
+    '12:00': '#8BC34A', '12:30': '#8BC34A',
     '13:00': '#CDDC39', '13:30': '#CDDC39',
     '14:00': '#FFC107', '14:30': '#FFC107',
     '15:00': '#FF9800', '15:30': '#FF9800',
     '16:00': '#FF5722', '16:30': '#FF5722',
-    '17:00': '#9C27B0', '17:30': '#9C27B0',
+    '17:00': '#F44336', '17:30': '#F44336',
     '18:00': '#E91E63', '18:30': '#E91E63',
-    '19:00': '#F44336', '19:30': '#F44336',
+    '19:00': '#9C27B0', '19:30': '#9C27B0',
     '20:00': '#673AB7', '20:30': '#673AB7',
     '21:00': '#3F51B5', '21:30': '#3F51B5',
     '22:00': '#2196F3', '22:30': '#2196F3',
-    '23:00': '#8BC34A', '23:30': '#8BC34A',
+    '23:00': '#03A9F4', '23:30': '#03A9F4',
     '00:00': '#00BCD4', '00:30': '#00BCD4',
     '01:00': '#009688', '01:30': '#009688',
     '02:00': '#795548'
   }
   return colors[startTime] || '#44ab51'
 }
+
 export default function AdminDashboard({ user, onLogout }) {
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
@@ -35,33 +37,42 @@ export default function AdminDashboard({ user, onLogout }) {
   const [newPin, setNewPin] = useState('')
   const [loading, setLoading] = useState(true)
   const [editShift, setEditShift] = useState(null)
-  const [restaurantRules, setRestaurantRules] = useState('')
-  const [weekNotes, setWeekNotes] = useState('')
-  const [settingsSaved, setSettingsSaved] = useState(false)
   const [scheduleWarnings, setScheduleWarnings] = useState([])
   const [newRule, setNewRule] = useState({ day: 'Monday', start_time: '11:00', end_time: '17:00', min_staff: 2, max_staff: 4 })
   const [editRule, setEditRule] = useState(null)
+  const [viewingWeek, setViewingWeek] = useState(null)
+  const [weekOptions, setWeekOptions] = useState([])
+
+  const getCurrentWeekStart = () => {
+    const d = new Date()
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    d.setDate(diff)
+    return d.toISOString().split('T')[0]
+  }
 
   useEffect(() => { fetchAll() }, [])
 
-  const fetchAll = async () => {
+  const fetchAll = async (weekFilter = null) => {
     setLoading(true)
-    const [{ data: emps }, { data: sh }, { data: prefs }, { data: sets }, { data: rules }] = await Promise.all([
+    const weekStart = weekFilter || getCurrentWeekStart()
+
+    const [{ data: emps }, { data: sh }, { data: prefs }, { data: rules }, { data: weeks }] = await Promise.all([
       supabase.from('employees').select('*').eq('role', 'employee'),
-      supabase.from('shifts').select('*'),
+      supabase.from('shifts').select('*').eq('week_start', weekStart),
       supabase.from('preferences').select('*'),
-      supabase.from('settings').select('*'),
-      supabase.from('staffing_rules').select('*').order('day').order('start_time')
+      supabase.from('staffing_rules').select('*').order('day').order('start_time'),
+      supabase.from('shifts').select('week_start').order('week_start', { ascending: false })
     ])
+
     setEmployees(emps || [])
     setShifts(sh || [])
     setPreferences(prefs || [])
     setStaffingRules(rules || [])
-    if (sets) {
-      const r = sets.find(s => s.id === 'restaurant_rules')
-      const n = sets.find(s => s.id === 'week_notes')
-      if (r) setRestaurantRules(r.value)
-      if (n) setWeekNotes(n.value)
+
+    if (weeks) {
+      const unique = [...new Set(weeks.map(w => w.week_start).filter(Boolean))]
+      setWeekOptions(unique)
     }
     setLoading(false)
   }
@@ -71,18 +82,19 @@ export default function AdminDashboard({ user, onLogout }) {
     await supabase.from('employees').insert({ name: newName.trim(), pin: newPin, role: 'employee' })
     setNewName('')
     setNewPin('')
-    fetchAll()
+    fetchAll(viewingWeek)
   }
 
   const removeEmployee = async (id) => {
     await supabase.from('employees').delete().eq('id', id)
     await supabase.from('shifts').delete().eq('employee_id', id)
     await supabase.from('preferences').delete().eq('employee_id', id)
-    fetchAll()
+    fetchAll(viewingWeek)
   }
 
   const saveShift = async () => {
     if (!editShift) return
+    const weekStart = getCurrentWeekStart()
     if (editShift.id) {
       await supabase.from('shifts').update({
         start_time: editShift.start_time,
@@ -93,32 +105,25 @@ export default function AdminDashboard({ user, onLogout }) {
         employee_id: editShift.employee_id,
         day: editShift.day,
         start_time: editShift.start_time,
-        end_time: editShift.end_time
+        end_time: editShift.end_time,
+        published: false,
+        week_start: weekStart
       })
     }
     setEditShift(null)
-    fetchAll()
-  }
-
-  const saveSettings = async () => {
-    await supabase.from('settings').upsert([
-      { id: 'restaurant_rules', value: restaurantRules },
-      { id: 'week_notes', value: weekNotes }
-    ])
-    setSettingsSaved(true)
-    setTimeout(() => setSettingsSaved(false), 2000)
+    fetchAll(viewingWeek)
   }
 
   const deleteShift = async (id) => {
     await supabase.from('shifts').delete().eq('id', id)
     setEditShift(null)
-    fetchAll()
+    fetchAll(viewingWeek)
   }
 
   const addRule = async () => {
     await supabase.from('staffing_rules').insert(newRule)
     setNewRule({ day: 'Monday', start_time: '11:00', end_time: '17:00', min_staff: 2, max_staff: 4 })
-    fetchAll()
+    fetchAll(viewingWeek)
   }
 
   const saveRule = async () => {
@@ -131,12 +136,12 @@ export default function AdminDashboard({ user, onLogout }) {
       max_staff: editRule.max_staff
     }).eq('id', editRule.id)
     setEditRule(null)
-    fetchAll()
+    fetchAll(viewingWeek)
   }
 
   const deleteRule = async (id) => {
     await supabase.from('staffing_rules').delete().eq('id', id)
-    fetchAll()
+    fetchAll(viewingWeek)
   }
 
   const timeToMins = (t) => {
@@ -151,14 +156,13 @@ export default function AdminDashboard({ user, onLogout }) {
     let se = timeToMins(sEnd)
     if (re <= rs) re += 24 * 60
     if (se <= ss) se += 24 * 60
-    // If rule starts after midnight (00:00-02:00), 
-    // check if employee shift covers that period
     if (rs < 180 && rs >= 0) rs += 24 * 60
     return ss < re && se > rs
   }
 
-const generateSchedule = async () => {
-    await supabase.from('shifts').delete().gt('created_at', '2000-01-01')
+  const generateSchedule = async () => {
+    const weekStart = getCurrentWeekStart()
+    await supabase.from('shifts').delete().eq('week_start', weekStart).eq('published', false)
 
     const newShifts = []
     const warnings = []
@@ -185,7 +189,9 @@ const generateSchedule = async () => {
           employee_id: emp.id,
           day: rule.day,
           start_time: pref.start_time,
-          end_time: pref.end_time
+          end_time: pref.end_time,
+          published: false,
+          week_start: weekStart
         })
       }
     }
@@ -195,15 +201,28 @@ const generateSchedule = async () => {
     )
 
     if (uniqueShifts.length > 0) {
-      await supabase.from('shifts').insert(uniqueShifts.map(s => ({ ...s, published: false })))
+      await supabase.from('shifts').insert(uniqueShifts)
     }
 
     setScheduleWarnings(warnings)
-    fetchAll()
+    fetchAll(viewingWeek)
+  }
+
+  const publishSchedule = async () => {
+    const weekStart = getCurrentWeekStart()
+    await supabase.from('shifts').update({ published: true }).eq('week_start', weekStart)
+    alert('Schedule published! Employees can now see their shifts.')
+    fetchAll(viewingWeek)
   }
 
   const getShift = (employeeId, day) => shifts.find(s => s.employee_id === employeeId && s.day === day)
   const getPref = (employeeId, day) => preferences.find(p => p.employee_id === employeeId && p.day === day)
+
+  const getWeekNumber = (dateStr) => {
+    const d = dateStr ? new Date(dateStr) : new Date()
+    const startOfYear = new Date(d.getFullYear(), 0, 1)
+    return Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
+  }
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
@@ -239,13 +258,14 @@ const generateSchedule = async () => {
             <div style={{ background: 'white', borderRadius: 12, padding: 20, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>📅 Auto Schedule Generator</h2>
               <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>Builds the schedule automatically based on employee availability and your staffing rules.</p>
-              <button onClick={generateSchedule} style={{ background: '#44ab51', color: 'white', padding: '12px 24px' }}>
-                ✨ Generate Schedule
-              </button>
-              <button onClick={publishSchedule} style={{ background: '#1976d2', color: 'white', padding: '12px 24px', marginLeft: 10 }}>
-                🚀 Publish Schedule
-              </button>
-             
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button onClick={generateSchedule} style={{ background: '#44ab51', color: 'white', padding: '12px 24px' }}>
+                  ✨ Generate Schedule
+                </button>
+                <button onClick={publishSchedule} style={{ background: '#1976d2', color: 'white', padding: '12px 24px' }}>
+                  🚀 Publish Schedule
+                </button>
+              </div>
 
               {scheduleWarnings.length > 0 && (
                 <div style={{ marginTop: 16, padding: 14, background: '#fff8e1', borderRadius: 8, border: '1px solid #ffc107' }}>
@@ -258,13 +278,24 @@ const generateSchedule = async () => {
             </div>
 
             <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
-  Weekly Schedule — Week {(() => {
-    const d = new Date()
-    const startOfYear = new Date(d.getFullYear(), 0, 1)
-    return Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
-  })()}
-</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 700 }}>
+                  Weekly Schedule — Week {getWeekNumber(viewingWeek)}
+                </h2>
+                <select
+                  value={viewingWeek || ''}
+                  onChange={e => { setViewingWeek(e.target.value || null); fetchAll(e.target.value || null) }}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13 }}
+                >
+                  <option value="">This Week</option>
+                  {weekOptions.map(w => (
+                    <option key={w} value={w}>
+                      Week {getWeekNumber(w)} — {new Date(w).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr>
@@ -286,17 +317,24 @@ const generateSchedule = async () => {
                         return (
                           <td key={day} style={{ padding: '6px', textAlign: 'center' }}>
                             <div
-                              onClick={() => setEditShift(shift || { employee_id: emp.id, day, start_time: pref?.start_time || '11:00', end_time: pref?.end_time || '17:00' })}
-                              style={{
+                              onClick={() => setEditShift(
+    shift || {
+      employee_id: emp.id,
+      day,
+      start_time: pref?.start_time || '11:00',
+      end_time: pref?.end_time || '17:00'
+    }
+  )}
+  style={{
                                 cursor: 'pointer', borderRadius: 6, padding: '4px 2px',
-                                background: shift ? `${getShiftColor(shift.start_time)}22` : pref ? '#f9fff9' : '#f9f9f9',background: shift ? `${getShiftColor(shift.start_time)}15` : pref ? '#f9fff9' : '#f9f9f9',
+                                background: shift ? `${getShiftColor(shift.start_time)}22` : pref ? '#f9fff9' : '#f9f9f9',
                                 border: `1px solid ${shift ? getShiftColor(shift.start_time) : pref ? '#86c98e' : '#eee'}`,
                                 minHeight: 36, display: 'flex', flexDirection: 'column',
                                 alignItems: 'center', justifyContent: 'center'
                               }}
                             >
                               {shift ? (
-                                 <>
+                                <>
                                   <span style={{ fontSize: 10, color: getShiftColor(shift.start_time), fontWeight: 700 }}>{shift.start_time}</span>
                                   <span style={{ fontSize: 10, color: getShiftColor(shift.start_time) }}>{shift.end_time}</span>
                                 </>
@@ -325,9 +363,8 @@ const generateSchedule = async () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>📋 Staffing Rules</h2>
-              <p style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>Define how many staff you need for each time slot. The scheduler uses these rules to build the weekly schedule.</p>
+              <p style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>Define how many staff you need for each time slot.</p>
 
-              {/* Add New Rule */}
               <div style={{ background: '#f9f9f9', borderRadius: 10, padding: 16, marginBottom: 20 }}>
                 <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>+ Add New Rule</p>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -370,7 +407,6 @@ const generateSchedule = async () => {
                 </button>
               </div>
 
-              {/* Rules List */}
               {DAYS.map(day => {
                 const dayRules = staffingRules.filter(r => r.day === day)
                 if (dayRules.length === 0) return null
@@ -440,29 +476,6 @@ const generateSchedule = async () => {
           <AttendanceReport employees={employees} supabase={supabase} shifts={shifts} />
         )}
 
-        {/* Settings Tab */}
-        {tab === 'settings' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>📋 Permanent Restaurant Notes</h2>
-              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>General notes visible when scheduling.</p>
-              <textarea value={restaurantRules} onChange={e => setRestaurantRules(e.target.value)}
-                placeholder="Write your permanent notes here..."
-                style={{ width: '100%', height: 160, padding: 12, borderRadius: 8, border: '1px solid #ddd', fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }} />
-            </div>
-            <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>🗓 This Week's Special Notes</h2>
-              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>One-time notes for this week only.</p>
-              <textarea value={weekNotes} onChange={e => setWeekNotes(e.target.value)}
-                placeholder="Write this week's special notes here..."
-                style={{ width: '100%', height: 120, padding: 12, borderRadius: 8, border: '1px solid #ddd', fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }} />
-            </div>
-            <button onClick={saveSettings} style={{ background: '#44ab51', color: 'white', padding: 14, fontSize: 15 }}>
-              {settingsSaved ? '✓ Saved!' : 'Save Notes'}
-            </button>
-          </div>
-        )}
-
         {/* Employees Tab */}
         {tab === 'employees' && (
           <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -475,7 +488,7 @@ const generateSchedule = async () => {
             {employees.length === 0 ? (
               <p style={{ color: '#888', fontSize: 14 }}>No employees yet. Add one above!</p>
             ) : employees.map(emp => (
-              <EmployeeRow key={emp.id} emp={emp} onRemove={removeEmployee} supabase={supabase} onUpdate={fetchAll} />
+              <EmployeeRow key={emp.id} emp={emp} onRemove={removeEmployee} supabase={supabase} onUpdate={() => fetchAll(viewingWeek)} />
             ))}
           </div>
         )}
@@ -514,12 +527,6 @@ const generateSchedule = async () => {
     </div>
   )
 }
-
-const publishSchedule = async () => {
-    await supabase.from('shifts').update({ published: true }).eq('published', false)
-    alert('Schedule published! Employees can now see their shifts.')
-    fetchAll()
-  }
 
 function AttendanceReport({ employees, supabase, shifts }) {
   const [records, setRecords] = useState([])
@@ -751,7 +758,7 @@ function AttendanceRow({ record, supabase, onUpdate }) {
         <button onClick={() => setEditing(true)} style={{ background: '#f0f0f0', color: '#555', padding: '4px 10px', fontSize: 12 }}>✏️ Edit</button>
       </div>
     </div>
- )
+  )
 }
 
 function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
@@ -773,19 +780,8 @@ function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
     return (
       <div style={{ padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Name"
-            style={{ flex: 2, minWidth: 120 }}
-          />
-          <input
-            value={pin}
-            onChange={e => setPin(e.target.value)}
-            placeholder="4-digit PIN"
-            maxLength={4}
-            style={{ flex: 1, minWidth: 100 }}
-          />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Name" style={{ flex: 2, minWidth: 120 }} />
+          <input value={pin} onChange={e => setPin(e.target.value)} placeholder="4-digit PIN" maxLength={4} style={{ flex: 1, minWidth: 100 }} />
           <button onClick={() => setEditing(false)} style={{ background: '#f0f0f0', color: '#333', padding: '8px 12px', fontSize: 13 }}>Cancel</button>
           <button onClick={save} disabled={saving} style={{ background: '#44ab51', color: 'white', padding: '8px 12px', fontSize: 13 }}>
             {saving ? 'Saving...' : 'Save'}
@@ -803,7 +799,7 @@ function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={() => setEditing(true)} style={{ background: '#f0f0f0', color: '#555', fontSize: 13, padding: '6px 12px' }}>✏️ Edit</button>
-      <button onClick={() => onRemove(emp.id)} style={{ background: '#fee', color: '#e44', fontSize: 13, padding: '6px 12px' }}>Remove</button>
+        <button onClick={() => onRemove(emp.id)} style={{ background: '#fee', color: '#e44', fontSize: 13, padding: '6px 12px' }}>Remove</button>
       </div>
     </div>
   )
