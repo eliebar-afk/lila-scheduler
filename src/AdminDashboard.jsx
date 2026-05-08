@@ -60,7 +60,6 @@ export default function AdminDashboard({ user, onLogout }) {
     try {
     const weekStart = weekFilter || getCurrentWeekStart()
 
-   const [weekOptions, setWeekOptions] = useState([])
     const [{ data: emps }, { data: extras }, { data: sh }, { data: prefs }, { data: rules }, { data: weeks }] = await Promise.all([
       supabase.from('employees').select('*').eq('role', 'employee'),
       supabase.from('employees').select('*').eq('role', 'extra'),
