@@ -68,7 +68,7 @@ export default function AdminDashboard({ user, onLogout }) {
       supabase.from('shifts').select('week_start').order('week_start', { ascending: false })
     ])
 
-    setEmployees(emps || [])
+   setEmployees(emps || [])
     setExtraEmployees(extras || [])
     setShifts(sh || [])
     setPreferences(prefs || [])
