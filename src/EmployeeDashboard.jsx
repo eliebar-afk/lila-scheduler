@@ -71,6 +71,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
     const { data: schedData } = await supabase
       .from('shifts')
       .select('*')
+      .eq('published', true)
 
     if (schedData) setSchedule(schedData)
 
@@ -93,10 +94,23 @@ export default function EmployeeDashboard({ user, onLogout }) {
   }
 
   const toggleDay = (day) => {
-    setPreferences(prev => ({
-      ...prev,
-      [day]: prev[day] ? undefined : { available: true, start: '11:00', end: '17:00' }
-    }))
+    setPreferences(prev => {
+      if (prev[day]) {
+        const updated = { ...prev }
+        delete updated[day]
+        return updated
+      }
+      const maxDays = user.max_days || 7
+      const currentCount = Object.values(prev).filter(Boolean).length
+      if (currentCount >= maxDays) {
+        alert(`You can only select a maximum of ${maxDays} days per week.`)
+        return prev
+      }
+      return {
+        ...prev,
+        [day]: { available: true, start: '11:00', end: '17:00' }
+      }
+    })
   }
 
   const updateTime = (day, field, value) => {
@@ -322,7 +336,12 @@ export default function EmployeeDashboard({ user, onLogout }) {
         {tab === 'availability' && (
           <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>✏️ My Availability This Week</h2>
-            <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>Tap the days you can work and set your preferred hours.</p>
+            <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>
+  Tap the days you can work and set your preferred hours.
+  {(user.min_days || user.max_days) && (
+    <span style={{ color: '#44ab51', fontWeight: 600 }}> ({user.min_days || 1}–{user.max_days || 7} days per week)</span>
+  )}
+</p>
 
             {DAYS.map(day => (
               <div key={day} style={{ marginBottom: 12 }}>
