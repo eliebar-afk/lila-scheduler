@@ -26,7 +26,6 @@ const getShiftColor = (startTime) => {
   return colors[startTime] || '#44ab51'
 }
 const RESTAURANT_IP = '62.195.229.217'
-const [weekAttendance, setWeekAttendance] = useState([])
 
 export default function EmployeeDashboard({ user, onLogout }) {
   const [preferences, setPreferences] = useState({})
@@ -38,6 +37,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const [attendance, setAttendance] = useState(null)
   const [checkLoading, setCheckLoading] = useState(false)
   const [tab, setTab] = useState('schedule')
+  const [weekAttendance, setWeekAttendance] = useState([])
 
   useEffect(() => {
     fetchData()
