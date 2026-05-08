@@ -26,6 +26,7 @@ const getShiftColor = (startTime) => {
   return colors[startTime] || '#44ab51'
 }
 const RESTAURANT_IP = '62.195.229.217'
+const [weekAttendance, setWeekAttendance] = useState([])
 
 export default function EmployeeDashboard({ user, onLogout }) {
   const [preferences, setPreferences] = useState({})
@@ -67,7 +68,19 @@ export default function EmployeeDashboard({ user, onLogout }) {
       prefData.forEach(p => { map[p.day] = { available: p.available, start: p.start_time, end: p.end_time } })
       setPreferences(map)
     }
+    const { data: weekAttData } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('employee_id', user.id)
+      .gte('date', (() => {
+        const d = new Date()
+        const day = d.getDay()
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+        d.setDate(diff)
+        return d.toISOString().split('T')[0]
+      })())
 
+    if (weekAttData) setWeekAttendance(weekAttData)
     const { data: schedData } = await supabase
       .from('shifts')
       .select('*')
@@ -373,7 +386,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
             )}
           </div>
         )}
-
+       
         {/* Availability Tab */}
         {tab === 'availability' && (
           <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
