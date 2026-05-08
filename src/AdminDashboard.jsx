@@ -642,8 +642,42 @@ function AttendanceReport({ employees, supabase, shifts }) {
   const weekOptions = getWeekOptions()
   const monthOptions = getMonthOptions()
 
+  const totalScheduled = employees.reduce((sum, emp) => {
+    const { scheduledHours } = getEmployeeData(emp.id)
+    return sum + scheduledHours
+  }, 0)
+
+  const totalWorked = employees.reduce((sum, emp) => {
+    const { actualHours } = getEmployeeData(emp.id)
+    return sum + actualHours
+  }, 0)
+
+  const totalDiff = Math.round((totalWorked - totalScheduled) * 10) / 10
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* Totals Summary */}
+      <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>📊 Team Totals</h2>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1, background: '#f9f9f9', borderRadius: 8, padding: '14px', textAlign: 'center' }}>
+            <p style={{ fontSize: 12, color: '#aaa', marginBottom: 4 }}>Total Scheduled</p>
+            <p style={{ fontWeight: 700, fontSize: 22, color: '#555' }}>{totalScheduled} hrs</p>
+          </div>
+          <div style={{ flex: 1, background: '#f0faf0', borderRadius: 8, padding: '14px', textAlign: 'center' }}>
+            <p style={{ fontSize: 12, color: '#aaa', marginBottom: 4 }}>Total Worked</p>
+            <p style={{ fontWeight: 700, fontSize: 22, color: '#44ab51' }}>{totalWorked} hrs</p>
+          </div>
+          <div style={{ flex: 1, borderRadius: 8, padding: '14px', textAlign: 'center', background: totalDiff === 0 ? '#f0faf0' : totalDiff > 0 ? '#fff8e1' : '#fff0f0' }}>
+            <p style={{ fontSize: 12, color: '#aaa', marginBottom: 4 }}>Difference</p>
+            <p style={{ fontWeight: 700, fontSize: 22, color: totalDiff === 0 ? '#44ab51' : totalDiff > 0 ? '#f0a500' : '#e44' }}>
+              {totalDiff > 0 ? `+${totalDiff}` : totalDiff} hrs
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', background: 'white', borderRadius: 12, padding: 6, gap: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
         {['weekly', 'monthly'].map(v => (
           <button key={v} onClick={() => setView(v)} style={{
