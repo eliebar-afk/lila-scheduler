@@ -210,8 +210,17 @@ export default function AdminDashboard({ user, onLogout }) {
       arr.findIndex(x => x.employee_id === s.employee_id && x.day === s.day) === i
     )
 
-    if (uniqueShifts.length > 0) {
-      await supabase.from('shifts').insert(uniqueShifts)
+    // Enforce max days per employee
+    const shiftsByEmployee = {}
+    const enforcedShifts = uniqueShifts.filter(s => {
+      const emp = employees.find(e => e.id === s.employee_id)
+      const max = emp?.max_days || 7
+      shiftsByEmployee[s.employee_id] = (shiftsByEmployee[s.employee_id] || 0) + 1
+      return shiftsByEmployee[s.employee_id] <= max
+    })
+
+   if (enforcedShifts.length > 0) {
+      await supabase.from('shifts').insert(enforcedShifts)
     }
 
     setScheduleWarnings(warnings)
@@ -787,12 +796,19 @@ function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(emp.name)
   const [pin, setPin] = useState(emp.pin)
+  const [minDays, setMinDays] = useState(emp.min_days || 1)
+  const [maxDays, setMaxDays] = useState(emp.max_days || 7)
   const [saving, setSaving] = useState(false)
 
   const save = async () => {
     if (!name.trim() || pin.length !== 4) return
     setSaving(true)
-    await supabase.from('employees').update({ name: name.trim(), pin }).eq('id', emp.id)
+    await supabase.from('employees').update({ 
+      name: name.trim(), 
+      pin,
+      min_days: minDays,
+      max_days: maxDays
+    }).eq('id', emp.id)
     setSaving(false)
     setEditing(false)
     onUpdate()
@@ -801,9 +817,23 @@ function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
   if (editing) {
     return (
       <div style={{ padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Name" style={{ flex: 2, minWidth: 120 }} />
           <input value={pin} onChange={e => setPin(e.target.value)} placeholder="4-digit PIN" maxLength={4} style={{ flex: 1, minWidth: 100 }} />
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ flex: 1, minWidth: 100 }}>
+            <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Min days per week</label>
+            <input type="number" min={0} max={7} value={minDays} onChange={e => setMinDays(Number(e.target.value))}
+              style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 100 }}>
+            <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Max days per week</label>
+            <input type="number" min={0} max={7} value={maxDays} onChange={e => setMaxDays(Number(e.target.value))}
+              style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => setEditing(false)} style={{ background: '#f0f0f0', color: '#333', padding: '8px 12px', fontSize: 13 }}>Cancel</button>
           <button onClick={save} disabled={saving} style={{ background: '#44ab51', color: 'white', padding: '8px 12px', fontSize: 13 }}>
             {saving ? 'Saving...' : 'Save'}
@@ -818,6 +848,7 @@ function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
       <div>
         <span style={{ fontWeight: 600 }}>{emp.name}</span>
         <span style={{ color: '#aaa', fontSize: 13, marginLeft: 10 }}>PIN: {emp.pin}</span>
+        <span style={{ color: '#44ab51', fontSize: 12, marginLeft: 10 }}>{emp.min_days || 1}–{emp.max_days || 7} days/week</span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={() => setEditing(true)} style={{ background: '#f0f0f0', color: '#555', fontSize: 13, padding: '6px 12px' }}>✏️ Edit</button>
