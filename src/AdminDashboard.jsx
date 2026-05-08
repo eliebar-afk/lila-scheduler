@@ -228,8 +228,7 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const publishSchedule = async () => {
-    const weekStart = getCurrentWeekStart()
-    await supabase.from('shifts').update({ published: true }).eq('week_start', weekStart)
+    await supabase.from('shifts').update({ published: true }).eq('published', false)
     alert('Schedule published! Employees can now see their shifts.')
     fetchAll(viewingWeek)
   }
