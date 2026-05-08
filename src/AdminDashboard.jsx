@@ -35,6 +35,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [tab, setTab] = useState('schedule')
   const [newName, setNewName] = useState('')
   const [newPin, setNewPin] = useState('')
+  const [newRole, setNewRole] = useState('employee')
   const [loading, setLoading] = useState(true)
   const [editShift, setEditShift] = useState(null)
   const [scheduleWarnings, setScheduleWarnings] = useState([])
@@ -57,8 +58,10 @@ export default function AdminDashboard({ user, onLogout }) {
     setLoading(true)
     const weekStart = weekFilter || getCurrentWeekStart()
 
-    const [{ data: emps }, { data: sh }, { data: prefs }, { data: rules }, { data: weeks }] = await Promise.all([
+    const [extraEmployees, setExtraEmployees] = useState([])
+    const [{ data: emps }, { data: extras }, { data: sh }, { data: prefs }, { data: rules }, { data: weeks }] = await Promise.all([
       supabase.from('employees').select('*').eq('role', 'employee'),
+      supabase.from('employees').select('*').eq('role', 'extra'),
       supabase.from('shifts').select('*').eq('week_start', weekStart),
       supabase.from('preferences').select('*'),
       supabase.from('staffing_rules').select('*').order('day').order('start_time'),
@@ -66,6 +69,7 @@ export default function AdminDashboard({ user, onLogout }) {
     ])
 
     setEmployees(emps || [])
+    setExtraEmployees(extras || [])
     setShifts(sh || [])
     setPreferences(prefs || [])
     setStaffingRules(rules || [])
@@ -79,9 +83,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
   const addEmployee = async () => {
     if (!newName.trim() || newPin.length !== 4) return
-    await supabase.from('employees').insert({ name: newName.trim(), pin: newPin, role: 'employee' })
+    await supabase.from('employees').insert({ name: newName.trim(), pin: newPin, role: newRole })
     setNewName('')
     setNewPin('')
+    setNewRole('employee')
     fetchAll(viewingWeek)
   }
 
@@ -483,6 +488,10 @@ export default function AdminDashboard({ user, onLogout }) {
             <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
               <input placeholder="Employee name" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2, minWidth: 120 }} />
               <input placeholder="4-digit PIN" maxLength={4} value={newPin} onChange={e => setNewPin(e.target.value)} style={{ flex: 1, minWidth: 100 }} />
+              <select value={newRole} onChange={e => setNewRole(e.target.value)} style={{ padding: '10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}>
+                <option value="employee">Staff</option>
+                <option value="extra">Extra</option>
+              </select>
               <button onClick={addEmployee} style={{ background: '#44ab51', color: 'white' }}>+ Add</button>
             </div>
             {employees.length === 0 ? (
@@ -490,6 +499,14 @@ export default function AdminDashboard({ user, onLogout }) {
             ) : employees.map(emp => (
               <EmployeeRow key={emp.id} emp={emp} onRemove={removeEmployee} supabase={supabase} onUpdate={() => fetchAll(viewingWeek)} />
             ))}
+            {extraEmployees.length > 0 && (
+              <>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: '#888', margin: '20px 0 12px' }}>🧹 Extra Workers</h3>
+                {extraEmployees.map(emp => (
+                  <EmployeeRow key={emp.id} emp={emp} onRemove={removeEmployee} supabase={supabase} onUpdate={() => fetchAll(viewingWeek)} />
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
