@@ -211,7 +211,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
           {/* My Hours Summary */}
           {(() => {
-            const myShifts = schedule.filter(s => s.employee_id === user.id)
+            const myShifts = schedule.filter(s => s.employee_id === user.id && s.published)
             const scheduledHours = myShifts.reduce((sum, s) => {
               if (!s.start_time || !s.end_time) return sum
               const [inH, inM] = s.start_time.split(':').map(Number)
@@ -231,13 +231,16 @@ export default function EmployeeDashboard({ user, onLogout }) {
                   <div style={{ flex: 1, background: '#f0faf0', borderRadius: 8, padding: '12px', textAlign: 'center' }}>
                     <p style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>Worked</p>
                     <p style={{ fontWeight: 700, fontSize: 20, color: '#44ab51' }}>
-                      {attendance?.check_in && attendance?.check_out ? (() => {
-                        const [inH, inM] = attendance.check_in.split(':').map(Number)
-                        const [outH, outM] = attendance.check_out.split(':').map(Number)
-                        let mins = (outH * 60 + outM) - (inH * 60 + inM)
-                        if (mins < 0) mins += 24 * 60
-                        return Math.round(mins / 60 * 10) / 10
-                      })() : 0} hrs
+                      {(() => {
+                        return weekAttendance.reduce((sum, a) => {
+                          if (!a.check_in || !a.check_out) return sum
+                          const [inH, inM] = a.check_in.split(':').map(Number)
+                          const [outH, outM] = a.check_out.split(':').map(Number)
+                          let mins = (outH * 60 + outM) - (inH * 60 + inM)
+                          if (mins < 0) mins += 24 * 60
+                          return sum + Math.round(mins / 60 * 10) / 10
+                        }, 0)
+                      })()} hrs
                     </p>
                   </div>
                 </div>
