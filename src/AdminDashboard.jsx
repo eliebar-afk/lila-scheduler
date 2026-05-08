@@ -43,6 +43,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [editRule, setEditRule] = useState(null)
   const [viewingWeek, setViewingWeek] = useState(null)
   const [weekOptions, setWeekOptions] = useState([])
+  const [extraEmployees, setExtraEmployees] = useState([])
 
   const getCurrentWeekStart = () => {
     const d = new Date()
@@ -60,7 +61,6 @@ export default function AdminDashboard({ user, onLogout }) {
     const weekStart = weekFilter || getCurrentWeekStart()
 
    const [weekOptions, setWeekOptions] = useState([])
-    const [extraEmployees, setExtraEmployees] = useState([])
     const [{ data: emps }, { data: extras }, { data: sh }, { data: prefs }, { data: rules }, { data: weeks }] = await Promise.all([
       supabase.from('employees').select('*').eq('role', 'employee'),
       supabase.from('employees').select('*').eq('role', 'extra'),
