@@ -207,6 +207,44 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
         {/* Schedule Tab */}
         {tab === 'schedule' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* My Hours Summary */}
+          {(() => {
+            const myShifts = schedule.filter(s => s.employee_id === user.id)
+            const scheduledHours = myShifts.reduce((sum, s) => {
+              if (!s.start_time || !s.end_time) return sum
+              const [inH, inM] = s.start_time.split(':').map(Number)
+              const [outH, outM] = s.end_time.split(':').map(Number)
+              let mins = (outH * 60 + outM) - (inH * 60 + inM)
+              if (mins < 0) mins += 24 * 60
+              return sum + Math.round(mins / 60 * 10) / 10
+            }, 0)
+            return (
+              <div style={{ background: 'white', borderRadius: 12, padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>⏱ My Hours This Week</h3>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ flex: 1, background: '#f9f9f9', borderRadius: 8, padding: '12px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>Scheduled</p>
+                    <p style={{ fontWeight: 700, fontSize: 20, color: '#555' }}>{scheduledHours} hrs</p>
+                  </div>
+                  <div style={{ flex: 1, background: '#f0faf0', borderRadius: 8, padding: '12px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>Worked</p>
+                    <p style={{ fontWeight: 700, fontSize: 20, color: '#44ab51' }}>
+                      {attendance?.check_in && attendance?.check_out ? (() => {
+                        const [inH, inM] = attendance.check_in.split(':').map(Number)
+                        const [outH, outM] = attendance.check_out.split(':').map(Number)
+                        let mins = (outH * 60 + outM) - (inH * 60 + inM)
+                        if (mins < 0) mins += 24 * 60
+                        return Math.round(mins / 60 * 10) / 10
+                      })() : 0} hrs
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
           <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
   📅 Team Schedule — Week {(() => {
@@ -260,6 +298,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         )}
 
