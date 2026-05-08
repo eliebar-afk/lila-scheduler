@@ -56,6 +56,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
   const fetchAll = async (weekFilter = null) => {
     setLoading(true)
+    try {
     const weekStart = weekFilter || getCurrentWeekStart()
 
     const [extraEmployees, setExtraEmployees] = useState([])
@@ -79,6 +80,10 @@ export default function AdminDashboard({ user, onLogout }) {
       setWeekOptions(unique)
     }
     setLoading(false)
+    } catch(e) {
+      console.error('fetchAll error:', e)
+      setLoading(false)
+    }
   }
 
   const addEmployee = async () => {
