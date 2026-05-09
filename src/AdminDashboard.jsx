@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00']
 const HOURS_LATE = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30']
+const TODAY = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
 
 const getShiftColor = (startTime) => {
   const colors = {
@@ -322,7 +323,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   <tr>
                     <th style={{ textAlign: 'left', padding: '8px 12px', color: '#888', fontWeight: 600 }}>Employee</th>
                     {DAYS.map(d => (
-                      <th key={d} style={{ padding: '8px 6px', color: '#888', fontWeight: 600, textAlign: 'center', fontSize: 12 }}>
+                      <th key={d} style={{ padding: '8px 6px', color: d === TODAY ? '#44ab51' : '#888', fontWeight: d === TODAY ? 800 : 600, textAlign: 'center', fontSize: 12, background: d === TODAY ? '#f0faf0' : 'transparent', borderRadius: 6 }}>
                         {d.slice(0, 3)}
                       </th>
                     ))}
