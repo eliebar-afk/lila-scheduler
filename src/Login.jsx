@@ -18,7 +18,7 @@ export default function Login({ onLogin }) {
       .select('*')
       .eq('name', name.trim())
       .eq('pin', pin.trim())
-      .eq('role', 'employee')
+      .in('role', ['employee', 'extra'])
       .single()
 
     setLoading(false)
