@@ -39,6 +39,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const [checkLoading, setCheckLoading] = useState(false)
   const [tab, setTab] = useState('schedule')
   const [weekAttendance, setWeekAttendance] = useState([])
+  const [newScheduleAlert, setNewScheduleAlert] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -104,9 +105,23 @@ export default function EmployeeDashboard({ user, onLogout }) {
       .single()
 
     if (attData) setAttendance(attData)
+
+    const { data: publishSetting } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('id', 'schedule_published_at')
+      .single()
+
+    if (publishSetting?.value) {
+      const publishedAt = new Date(publishSetting.value)
+      const lastSeen = localStorage.getItem(`schedule_seen_${user.id}`)
+      if (!lastSeen || new Date(lastSeen) < publishedAt) {
+        setNewScheduleAlert(true)
+      }
+    }
+
     setLoading(false)
   }
-
   const toggleDay = (day) => {
     setPreferences(prev => {
       if (prev[day]) {
@@ -222,6 +237,27 @@ export default function EmployeeDashboard({ user, onLogout }) {
         {/* Schedule Tab */}
         {tab === 'schedule' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {newScheduleAlert && (
+            <div style={{
+              background: '#44ab51', borderRadius: 12, padding: 16,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <div>
+                <p style={{ color: 'white', fontWeight: 700, fontSize: 15 }}>🎉 New schedule published!</p>
+                <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>Your shifts for this week have been updated.</p>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.setItem(`schedule_seen_${user.id}`, new Date().toISOString())
+                  setNewScheduleAlert(false)
+                }}
+                style={{ background: 'rgba(255,255,255,0.2)', color: 'white', padding: '8px 14px', fontSize: 13, borderRadius: 8 }}
+              >
+                Got it ✓
+              </button>
+            </div>
+          )}
 
           {/* My Hours Summary */}
           {(() => {
