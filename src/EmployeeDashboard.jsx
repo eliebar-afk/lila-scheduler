@@ -265,8 +265,11 @@ export default function EmployeeDashboard({ user, onLogout }) {
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
   📅 Team Schedule — Week {(() => {
     const d = new Date()
-    const startOfYear = new Date(d.getFullYear(), 0, 1)
-    return Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+    const dayNum = date.getUTCDay() || 7
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum)
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
+    return Math.ceil((((date - yearStart) / 86400000) + 1) / 7)
   })()}
 </h2>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>

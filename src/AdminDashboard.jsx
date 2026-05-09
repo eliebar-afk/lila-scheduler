@@ -238,8 +238,11 @@ export default function AdminDashboard({ user, onLogout }) {
 
   const getWeekNumber = (dateStr) => {
     const d = dateStr ? new Date(dateStr) : new Date()
-    const startOfYear = new Date(d.getFullYear(), 0, 1)
-    return Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+    const dayNum = date.getUTCDay() || 7
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum)
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
+    return Math.ceil((((date - yearStart) / 86400000) + 1) / 7)
   }
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
