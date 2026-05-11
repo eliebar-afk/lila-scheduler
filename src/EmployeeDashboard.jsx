@@ -83,10 +83,19 @@ export default function EmployeeDashboard({ user, onLogout }) {
       })())
 
     if (weekAttData) setWeekAttendance(weekAttData)
+    const weekStart = (() => {
+      const d = new Date()
+      const day = d.getDay()
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+      d.setDate(diff)
+      return d.toISOString().split('T')[0]
+    })()
+
     const { data: schedData } = await supabase
       .from('shifts')
       .select('*')
       .eq('published', true)
+      .eq('week_start', weekStart)
 
     if (schedData) setSchedule(schedData)
 
