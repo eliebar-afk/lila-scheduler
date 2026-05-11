@@ -8,7 +8,7 @@ const TODAY = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
 
 const getShiftColor = (startTime) => {
   const colors = {
-   '11:00': '#2d85d7', '11:30': '#2d85d7',
+    '11:00': '#2d85d7', '11:30': '#2d85d7',
     '12:00': '#46c042', '12:30': '#46c042',
     '13:00': '#CDDC39', '13:30': '#CDDC39',
     '14:00': '#e03308', '14:30': '#e03308',
