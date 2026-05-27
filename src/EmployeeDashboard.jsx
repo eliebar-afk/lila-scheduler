@@ -5,9 +5,6 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30']
 const HOURS_LATE = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30']
 const TODAY = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
-const [handoverTasks, setHandoverTasks] = useState([])
-const [newTask, setNewTask] = useState('')
-const [taskLoading, setTaskLoading] = useState(false)
 const getShiftColor = (startTime) => {
   const colors = {
     '11:00': '#2d85d7', '11:30': '#2d85d7',
@@ -42,6 +39,9 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const [checkLoading, setCheckLoading] = useState(false)
   const [tab, setTab] = useState('schedule')
   const [weekAttendance, setWeekAttendance] = useState([])
+  const [handoverTasks, setHandoverTasks] = useState([])
+  const [newTask, setNewTask] = useState('')
+  const [taskLoading, setTaskLoading] = useState(false)
   const [newScheduleAlert, setNewScheduleAlert] = useState(false)
 
   useEffect(() => {
