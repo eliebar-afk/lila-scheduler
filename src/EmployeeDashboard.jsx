@@ -267,19 +267,28 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
       {/* Tabs */}
       <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #eee' }}>
-        {['schedule', 'checkin', 'availability', 'handover'].map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            style={{
-              flex: 1, padding: 14, background: 'none', borderRadius: 0,
-              borderBottom: tab === t ? '3px solid #44ab51' : '3px solid transparent',
-              color: tab === t ? '#44ab51' : '#888', fontWeight: 600, fontSize: 13
-            }}
-          >
-            {t === 'schedule' ? '📅 Schedule' : t === 'checkin' ? '✅ Check In' : t === 'availability' ? '✏️ Availability' : '📋 Handover'}
-          </button>
-        ))}
+        {[
+            { id: 'schedule', icon: '📅', label: 'Schedule' },
+            { id: 'checkin', icon: '✅', label: 'Check In' },
+            { id: 'availability', icon: '✏️', label: 'Availability' },
+            { id: 'handover', icon: '📋', label: 'Handover' }
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                flex: 1, padding: '10px 4px', background: 'none', borderRadius: 0,
+                borderBottom: tab === t.id ? '3px solid #44ab51' : '3px solid transparent',
+                color: tab === t.id ? '#44ab51' : '#aaa',
+                fontWeight: tab === t.id ? 700 : 500,
+                fontSize: 11, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: 4, transition: 'all 0.15s'
+              }}
+            >
+              <span style={{ fontSize: 20 }}>{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
       </div>
 
       <div style={{ padding: 24, maxWidth: 800, margin: '0 auto' }}>
