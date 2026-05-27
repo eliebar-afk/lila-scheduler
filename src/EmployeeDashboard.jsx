@@ -640,9 +640,11 @@ export default function EmployeeDashboard({ user, onLogout }) {
                   onClick={() => toggleDay(day)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 12,
-                    cursor: 'pointer', padding: '12px 14px', borderRadius: 12,
+                    cursor: 'pointer', padding: '12px 14px',
+                    borderRadius: preferences[day] ? '12px 12px 0 0' : 12,
                     background: preferences[day] ? '#edf8ee' : '#f8f9fa',
                     border: `1.5px solid ${preferences[day] ? '#44ab51' : '#e5e9f0'}`,
+                    borderBottom: preferences[day] ? 'none' : `1.5px solid #e5e9f0`,
                     transition: 'all 0.15s',
                   }}
                 >
