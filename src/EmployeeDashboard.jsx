@@ -430,7 +430,34 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 ))}
               </tbody>
             </table>
-          </div>
+         </div>
+
+            {/* Handover Preview */}
+            {handoverTasks.filter(t => !t.completed).length > 0 && (
+              <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 700 }}>⏳ Handover Tasks</h3>
+                  <button onClick={() => setTab('handover')} style={{ background: '#f0faf0', color: '#44ab51', padding: '4px 10px', fontSize: 12, fontWeight: 600 }}>See all</button>
+                </div>
+                {handoverTasks.filter(t => !t.completed).slice(0, 3).map(task => (
+                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+                    <div
+                      onClick={() => toggleTask(task)}
+                      style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: '2px solid #ddd', cursor: 'pointer' }}
+                    />
+                    <div>
+                      <p style={{ fontSize: 14 }}>{task.task}</p>
+                      <p style={{ fontSize: 11, color: '#aaa' }}>Added by {task.added_by_name}</p>
+                    </div>
+                  </div>
+                ))}
+                {handoverTasks.filter(t => !t.completed).length > 3 && (
+                  <p style={{ fontSize: 12, color: '#888', marginTop: 8, textAlign: 'center' }}>
+                    +{handoverTasks.filter(t => !t.completed).length - 3} more tasks
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
