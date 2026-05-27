@@ -5,6 +5,9 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30']
 const HOURS_LATE = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30']
 const TODAY = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
+const [handoverTasks, setHandoverTasks] = useState([])
+const [newTask, setNewTask] = useState('')
+const [taskLoading, setTaskLoading] = useState(false)
 const getShiftColor = (startTime) => {
   const colors = {
     '11:00': '#2d85d7', '11:30': '#2d85d7',
@@ -44,6 +47,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
   useEffect(() => {
     fetchData()
     fetchIp()
+    fetchHandover()
   }, [])
 
   const fetchIp = async () => {
@@ -174,6 +178,43 @@ export default function EmployeeDashboard({ user, onLogout }) {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  const fetchHandover = async () => {
+    const { data } = await supabase
+      .from('handover')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (data) setHandoverTasks(data)
+  }
+
+  const addTask = async () => {
+    if (!newTask.trim()) return
+    setTaskLoading(true)
+    await supabase.from('handover').insert({
+      task: newTask.trim(),
+      added_by: user.id,
+      added_by_name: user.name,
+      completed: false
+    })
+    setNewTask('')
+    fetchHandover()
+    setTaskLoading(false)
+  }
+
+  const toggleTask = async (task) => {
+    await supabase.from('handover').update({
+      completed: !task.completed,
+      completed_by: !task.completed ? user.id : null,
+      completed_by_name: !task.completed ? user.name : null,
+      completed_at: !task.completed ? new Date().toISOString() : null
+    }).eq('id', task.id)
+    fetchHandover()
+  }
+
+  const deleteTask = async (id) => {
+    await supabase.from('handover').delete().eq('id', id)
+    fetchHandover()
+  }
+
   const handleCheckIn = async () => {
     if (userIp !== RESTAURANT_IP) {
       alert('You must be connected to the restaurant WiFi to check in.')
@@ -226,7 +267,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
       {/* Tabs */}
       <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #eee' }}>
-        {['schedule', 'checkin', 'availability'].map(t => (
+        {['schedule', 'checkin', 'availability', 'handover'].map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -236,7 +277,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
               color: tab === t ? '#44ab51' : '#888', fontWeight: 600, fontSize: 13
             }}
           >
-            {t === 'schedule' ? '📅 Schedule' : t === 'checkin' ? '✅ Check In' : '✏️ Availability'}
+            {t === 'schedule' ? '📅 Schedule' : t === 'checkin' ? '✅ Check In' : t === 'availability' ? '✏️ Availability' : '📋 Handover'}
           </button>
         ))}
       </div>
@@ -504,6 +545,100 @@ export default function EmployeeDashboard({ user, onLogout }) {
           </div>
         )}
       </div>
+      {tab === 'handover' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>📋 Handover List</h2>
+              <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>Add tasks for the next shift. Check off completed items.</p>
+
+              {/* Add Task */}
+              <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+                <input
+                  placeholder="Add a task for the next shift..."
+                  value={newTask}
+                  onChange={e => setNewTask(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addTask()}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  onClick={addTask}
+                  disabled={taskLoading}
+                  style={{ background: '#44ab51', color: 'white', padding: '10px 16px', whiteSpace: 'nowrap' }}
+                >
+                  + Add
+                </button>
+              </div>
+
+              {/* Pending Tasks */}
+              {handoverTasks.filter(t => !t.completed).length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#e05555', marginBottom: 10 }}>⏳ Pending</p>
+                  {handoverTasks.filter(t => !t.completed).map(task => (
+                    <div key={task.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 0', borderBottom: '1px solid #f0f0f0'
+                    }}>
+                      <div
+                        onClick={() => toggleTask(task)}
+                        style={{
+                          width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                          border: '2px solid #ddd', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: 14, fontWeight: 500 }}>{task.task}</p>
+                        <p style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
+                          Added by {task.added_by_name} · {new Date(task.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      {task.added_by === user.id && (
+                        <button onClick={() => deleteTask(task.id)} style={{ background: '#fee', color: '#e44', padding: '4px 8px', fontSize: 12 }}>🗑</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Completed Tasks */}
+              {handoverTasks.filter(t => t.completed).length > 0 && (
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#44ab51', marginBottom: 10 }}>✅ Completed</p>
+                  {handoverTasks.filter(t => t.completed).map(task => (
+                    <div key={task.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 0', borderBottom: '1px solid #f0f0f0', opacity: 0.6
+                    }}>
+                      <div
+                        onClick={() => toggleTask(task)}
+                        style={{
+                          width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                          background: '#44ab51', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                      >
+                        <span style={{ color: 'white', fontSize: 14 }}>✓</span>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: 14, fontWeight: 500, textDecoration: 'line-through' }}>{task.task}</p>
+                        <p style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
+                          Added by {task.added_by_name} · Completed by {task.completed_by_name}
+                        </p>
+                      </div>
+                      {task.added_by === user.id && (
+                        <button onClick={() => deleteTask(task.id)} style={{ background: '#fee', color: '#e44', padding: '4px 8px', fontSize: 12 }}>🗑</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {handoverTasks.length === 0 && (
+                <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', padding: 20 }}>No tasks yet. Add something for the next shift!</p>
+              )}
+            </div>
+          </div>
+        )}
     </div>
   )
 }
