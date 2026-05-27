@@ -38,14 +38,20 @@ const card = {
   border: '1px solid rgba(0,0,0,0.05)',
 }
 const selectStyle = {
-  padding: '9px 12px',
+  padding: '9px 36px 9px 12px',
   borderRadius: 10,
-  border: '1.5px solid #e5e9f0',
+  border: '1.5px solid #c3e6c8',
   fontSize: 13,
   background: 'white',
   fontFamily: 'inherit',
   color: '#111827',
   width: '100%',
+  appearance: 'none',
+  WebkitAppearance: 'none',
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2344ab51' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 12px center',
+  cursor: 'pointer',
 }
 
 export default function EmployeeDashboard({ user, onLogout }) {
