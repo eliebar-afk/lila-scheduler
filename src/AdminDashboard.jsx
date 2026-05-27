@@ -55,6 +55,14 @@ export default function AdminDashboard({ user, onLogout }) {
     return d.toISOString().split('T')[0]
   }
 
+const fetchHandover = async () => {
+    const { data } = await supabase
+      .from('handover')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (data) setHandoverTasks(data)
+  }
+
   useEffect(() => { fetchAll() }, [])
 
   const fetchAll = async (weekFilter = null) => {
@@ -154,14 +162,6 @@ export default function AdminDashboard({ user, onLogout }) {
   const deleteRule = async (id) => {
     await supabase.from('staffing_rules').delete().eq('id', id)
     fetchAll(viewingWeek)
-  }
-
-  const fetchHandover = async () => {
-    const { data } = await supabase
-      .from('handover')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (data) setHandoverTasks(data)
   }
 
   const adminDeleteTask = async (id) => {
@@ -595,7 +595,10 @@ function AttendanceReport({ employees, supabase, shifts }) {
   const [showComparison, setShowComparison] = useState(false)
 
   useEffect(() => { fetchRecords() }, [view, selectedWeek, selectedMonth])
-  useEffect(() => { fetchAll(); fetchHandover() }, [])
+  useEffect(() => { 
+    fetchAll()
+    fetchHandover()
+  }, [])
 
   const getWeekOptions = () => {
     const weeks = []
