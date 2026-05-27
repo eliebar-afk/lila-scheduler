@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -147,7 +147,21 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   }
 
+  // Ref so real-time callbacks always see the latest viewingWeek without stale closure
+  const viewingWeekRef = useRef(null)
+
   useEffect(() => { fetchAll(); fetchHandover() }, [])
+
+  // Real-time subscriptions
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'handover' }, fetchHandover)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, () => fetchAll(viewingWeekRef.current))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => fetchAll(viewingWeekRef.current))
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [])
 
   const addEmployee = async () => {
     if (!newName.trim() || newPin.length !== 4) return
@@ -419,7 +433,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 </h2>
                 <select
                   value={viewingWeek || ''}
-                  onChange={e => { setViewingWeek(e.target.value || null); fetchAll(e.target.value || null) }}
+                  onChange={e => { const val = e.target.value || null; setViewingWeek(val); viewingWeekRef.current = val; fetchAll(val) }}
                   style={selectStyle}
                 >
                   <option value="">This Week</option>
