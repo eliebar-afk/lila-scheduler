@@ -709,7 +709,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 14, textDecoration: 'line-through', color: '#9ca3af' }}>{task.task}</p>
                       <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                        Added by {task.added_by_name} · Deleted by {task.deleted_by_name} · {task.deleted_at ? new Date(task.deleted_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                        Added by {task.added_by_name}{task.completed_by_name ? ` · Completed by ${task.completed_by_name}` : ''} · Deleted by {task.deleted_by_name} · {task.deleted_at ? new Date(task.deleted_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                       </p>
                     </div>
                     <button onClick={() => adminDeleteTask(task.id)} style={{ ...btnSmDanger, padding: '4px 10px' }}>🗑</button>
