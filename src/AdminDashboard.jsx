@@ -551,6 +551,85 @@ const fetchHandover = async () => {
           </div>
         )}
       </div>
+      
+      {/* Handover Tab */}
+        {tab === 'handover' && (
+          <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>📋 Handover List</h2>
+            <p style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>Full history including completed and deleted items.</p>
+
+            {/* Pending */}
+            {handoverTasks.filter(t => !t.completed && !t.deleted).length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#e05555', marginBottom: 10 }}>⏳ Pending</p>
+                {handoverTasks.filter(t => !t.completed && !t.deleted).map(task => (
+                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
+                    <div onClick={() => adminToggleTask(task)} style={{
+                      width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                      border: '2px solid #ddd', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 14, fontWeight: 500 }}>{task.task}</p>
+                      <p style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
+                        Added by {task.added_by_name} · {new Date(task.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <button onClick={() => adminDeleteTask(task.id)} style={{ background: '#fee', color: '#e44', padding: '4px 10px', fontSize: 12 }}>🗑</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Completed */}
+            {handoverTasks.filter(t => t.completed && !t.deleted).length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#44ab51', marginBottom: 10 }}>✅ Completed</p>
+                {handoverTasks.filter(t => t.completed && !t.deleted).map(task => (
+                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
+                    <div onClick={() => adminToggleTask(task)} style={{
+                      width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                      background: '#44ab51', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <span style={{ color: 'white', fontSize: 14 }}>✓</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 14, fontWeight: 500, textDecoration: 'line-through', color: '#aaa' }}>{task.task}</p>
+                      <p style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
+                        Added by {task.added_by_name} · Completed by {task.completed_by_name} · {new Date(task.completed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <button onClick={() => adminDeleteTask(task.id)} style={{ background: '#fee', color: '#e44', padding: '4px 10px', fontSize: 12 }}>🗑</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Deleted */}
+            {handoverTasks.filter(t => t.deleted).length > 0 && (
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#aaa', marginBottom: 10 }}>🗑 Deleted by employees</p>
+                {handoverTasks.filter(t => t.deleted).map(task => (
+                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f0f0f0', opacity: 0.5 }}>
+                    <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: '2px solid #ddd' }} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 14, textDecoration: 'line-through', color: '#aaa' }}>{task.task}</p>
+                      <p style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
+                        Added by {task.added_by_name} · Deleted by {task.deleted_by_name} · {task.deleted_at ? new Date(task.deleted_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                      </p>
+                    </div>
+                    <button onClick={() => adminDeleteTask(task.id)} style={{ background: '#fee', color: '#e44', padding: '4px 10px', fontSize: 12 }}>🗑</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {handoverTasks.length === 0 && (
+              <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', padding: 20 }}>No handover tasks yet.</p>
+            )}
+          </div>
+        )}
 
       {/* Edit Shift Modal */}
       {editShift && (
@@ -919,84 +998,6 @@ function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
         <button onClick={() => setEditing(true)} style={{ background: '#f0f0f0', color: '#555', fontSize: 13, padding: '6px 12px' }}>✏️ Edit</button>
         <button onClick={() => onRemove(emp.id)} style={{ background: '#fee', color: '#e44', fontSize: 13, padding: '6px 12px' }}>Remove</button>
       </div>
-      {/* Handover Tab */}
-        {tab === 'handover' && (
-          <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>📋 Handover List</h2>
-            <p style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>Full history including completed and deleted items.</p>
-
-            {/* Pending */}
-            {handoverTasks.filter(t => !t.completed && !t.deleted).length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#e05555', marginBottom: 10 }}>⏳ Pending</p>
-                {handoverTasks.filter(t => !t.completed && !t.deleted).map(task => (
-                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
-                    <div onClick={() => adminToggleTask(task)} style={{
-                      width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                      border: '2px solid #ddd', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }} />
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 14, fontWeight: 500 }}>{task.task}</p>
-                      <p style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
-                        Added by {task.added_by_name} · {new Date(task.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    <button onClick={() => adminDeleteTask(task.id)} style={{ background: '#fee', color: '#e44', padding: '4px 10px', fontSize: 12 }}>🗑</button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Completed */}
-            {handoverTasks.filter(t => t.completed && !t.deleted).length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#44ab51', marginBottom: 10 }}>✅ Completed</p>
-                {handoverTasks.filter(t => t.completed && !t.deleted).map(task => (
-                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
-                    <div onClick={() => adminToggleTask(task)} style={{
-                      width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                      background: '#44ab51', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                      <span style={{ color: 'white', fontSize: 14 }}>✓</span>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 14, fontWeight: 500, textDecoration: 'line-through', color: '#aaa' }}>{task.task}</p>
-                      <p style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
-                        Added by {task.added_by_name} · Completed by {task.completed_by_name} · {new Date(task.completed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    <button onClick={() => adminDeleteTask(task.id)} style={{ background: '#fee', color: '#e44', padding: '4px 10px', fontSize: 12 }}>🗑</button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Deleted */}
-            {handoverTasks.filter(t => t.deleted).length > 0 && (
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#aaa', marginBottom: 10 }}>🗑 Deleted by employees</p>
-                {handoverTasks.filter(t => t.deleted).map(task => (
-                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f0f0f0', opacity: 0.5 }}>
-                    <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: '2px solid #ddd' }} />
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 14, textDecoration: 'line-through', color: '#aaa' }}>{task.task}</p>
-                      <p style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
-                        Added by {task.added_by_name} · Deleted by {task.deleted_by_name} · {task.deleted_at ? new Date(task.deleted_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
-                      </p>
-                    </div>
-                    <button onClick={() => adminDeleteTask(task.id)} style={{ background: '#fee', color: '#e44', padding: '4px 10px', fontSize: 12 }}>🗑</button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {handoverTasks.length === 0 && (
-              <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', padding: 20 }}>No handover tasks yet.</p>
-            )}
-          </div>
-        )}
     </div>
   )
 }
