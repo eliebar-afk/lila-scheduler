@@ -108,6 +108,9 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const [manualNote, setManualNote] = useState('')
   const [manualLoading, setManualLoading] = useState(false)
   const [manualSent, setManualSent] = useState(false)
+  const [manualOutNote, setManualOutNote] = useState('')
+  const [manualOutLoading, setManualOutLoading] = useState(false)
+  const [manualOutSent, setManualOutSent] = useState(false)
 
   // Ref so real-time callbacks always see the current viewingWeek without stale closure
   const viewingWeekRef = useRef(null)
@@ -303,6 +306,21 @@ export default function EmployeeDashboard({ user, onLogout }) {
       .from('attendance').update({ check_out: now }).eq('id', attendance.id).select().single()
     if (data) setAttendance(data)
     setCheckLoading(false)
+  }
+
+  const handleManualCheckOut = async () => {
+    setManualOutLoading(true)
+    const now = new Date().toTimeString().slice(0, 5)
+    const dateLabel = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })
+    await supabase.from('handover').insert({
+      task: `⚠️ Manual check-out request — ${user.name}, ${dateLabel} at ${now}${manualOutNote.trim() ? `: "${manualOutNote.trim()}"` : ''}`,
+      added_by: user.id,
+      added_by_name: user.name,
+      completed: false,
+    })
+    setManualOutSent(true)
+    setManualOutNote('')
+    setManualOutLoading(false)
   }
 
   const handleManualCheckIn = async () => {
@@ -602,19 +620,57 @@ export default function EmployeeDashboard({ user, onLogout }) {
                   )}
                 </>
               ) : !attendance?.check_out ? (
-                <button
-                  onClick={handleCheckOut}
-                  disabled={checkLoading || !isOnRestaurantWifi}
-                  style={{
-                    width: '100%', padding: '18px', fontSize: 17, fontWeight: 700,
-                    background: isOnRestaurantWifi ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : '#e5e9f0',
-                    color: isOnRestaurantWifi ? 'white' : '#9ca3af',
-                    borderRadius: 14,
-                    boxShadow: isOnRestaurantWifi ? '0 6px 20px rgba(220,38,38,0.35)' : 'none',
-                  }}
-                >
-                  {checkLoading ? 'Checking out…' : '🔴 Check Out'}
-                </button>
+                <>
+                  <button
+                    onClick={handleCheckOut}
+                    disabled={checkLoading || !isOnRestaurantWifi}
+                    style={{
+                      width: '100%', padding: '18px', fontSize: 17, fontWeight: 700,
+                      background: isOnRestaurantWifi ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : '#e5e9f0',
+                      color: isOnRestaurantWifi ? 'white' : '#9ca3af',
+                      borderRadius: 14,
+                      boxShadow: isOnRestaurantWifi ? '0 6px 20px rgba(220,38,38,0.35)' : 'none',
+                    }}
+                  >
+                    {checkLoading ? 'Checking out…' : '🔴 Check Out'}
+                  </button>
+
+                  {/* Manual check-out fallback when off WiFi */}
+                  {!isOnRestaurantWifi && (
+                    <div style={{ marginTop: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                        <div style={{ flex: 1, height: 1, background: '#e5e9f0' }} />
+                        <span style={{ fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>WiFi not available?</span>
+                        <div style={{ flex: 1, height: 1, background: '#e5e9f0' }} />
+                      </div>
+                      {manualOutSent ? (
+                        <div style={{ background: '#edf8ee', borderRadius: 12, padding: '16px', border: '1px solid #bbdfc0', textAlign: 'center' }}>
+                          <p style={{ fontSize: 20, marginBottom: 6 }}>✅</p>
+                          <p style={{ fontWeight: 700, color: '#44ab51', fontSize: 15 }}>Check-out request sent</p>
+                          <p style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>Admin will log your check-out time.</p>
+                        </div>
+                      ) : (
+                        <>
+                          <textarea
+                            placeholder="Optional: explain why you're not on WiFi…"
+                            value={manualOutNote}
+                            onChange={e => setManualOutNote(e.target.value)}
+                            rows={2}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid #e5e9f0', fontSize: 14, fontFamily: 'inherit', resize: 'none', outline: 'none', marginBottom: 10, color: '#111827' }}
+                          />
+                          <button
+                            onClick={handleManualCheckOut}
+                            disabled={manualOutLoading}
+                            style={{ width: '100%', padding: '13px', fontSize: 14, fontWeight: 700, background: '#f8f9fa', color: '#374151', borderRadius: 12, border: '1.5px solid #e5e9f0' }}
+                          >
+                            {manualOutLoading ? 'Sending…' : '📩 Request Manual Check-out'}
+                          </button>
+                          <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', marginTop: 8 }}>Notifies the admin — they'll log your end time.</p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div style={{ textAlign: 'center', padding: '20px', background: '#edf8ee', borderRadius: 14, border: '1px solid #bbdfc0' }}>
                   <p style={{ fontSize: 24, marginBottom: 6 }}>✅</p>

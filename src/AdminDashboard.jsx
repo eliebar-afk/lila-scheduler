@@ -93,6 +93,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [viewingWeek, setViewingWeek] = useState(null)
   const [weekOptions, setWeekOptions] = useState([])
   const [handoverTasks, setHandoverTasks] = useState([])
+  const [approvingTask, setApprovingTask] = useState(null) // { task, time, date }
 
   const getCurrentWeekStart = () => {
     const d = new Date()
@@ -242,6 +243,33 @@ export default function AdminDashboard({ user, onLogout }) {
       completed_by_name: !task.completed ? 'Admin' : null,
       completed_at: !task.completed ? new Date().toISOString() : null
     }).eq('id', task.id)
+    fetchHandover()
+  }
+
+  const approveManualRequest = async () => {
+    if (!approvingTask) return
+    const { task, time, date } = approvingTask
+    const isCheckIn = task.task.includes('check-in request')
+
+    if (isCheckIn) {
+      await supabase.from('attendance').insert({
+        employee_id: task.added_by,
+        date,
+        check_in: time,
+      })
+    } else {
+      await supabase.from('attendance').update({ check_out: time })
+        .eq('employee_id', task.added_by)
+        .eq('date', date)
+    }
+
+    await supabase.from('handover').update({
+      completed: true,
+      completed_by_name: 'Admin',
+      completed_at: new Date().toISOString(),
+    }).eq('id', task.id)
+
+    setApprovingTask(null)
     fetchHandover()
   }
 
@@ -670,23 +698,77 @@ export default function AdminDashboard({ user, onLogout }) {
             {handoverTasks.filter(t => !t.completed && !t.deleted).length > 0 && (
               <div style={{ marginBottom: 20 }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 10, letterSpacing: '0.03em', textTransform: 'uppercase' }}>Pending</p>
-                {handoverTasks.filter(t => !t.completed && !t.deleted).map(task => (
-                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid #f3f4f6' }}>
-                    <div onClick={() => adminToggleTask(task)} style={{
-                      width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                      border: '2px solid #d1d5db', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 0.15s',
-                    }} />
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{task.task}</p>
-                      <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                        Added by {task.added_by_name} · {new Date(task.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </p>
+                {handoverTasks.filter(t => !t.completed && !t.deleted).map(task => {
+                  const isManual = task.task.includes('check-in request') || task.task.includes('check-out request')
+                  const isApproving = approvingTask?.task?.id === task.id
+                  const timeMatch = task.task.match(/at (\d{2}:\d{2})/)
+                  const suggestedTime = timeMatch ? timeMatch[1] : new Date().toTimeString().slice(0, 5)
+                  const taskDate = new Date(task.created_at).toISOString().split('T')[0]
+                  return (
+                  <div key={task.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0' }}>
+                      {isManual ? (
+                        <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, background: '#fffbeb', border: '2px solid #fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: 11 }}>!</span>
+                        </div>
+                      ) : (
+                        <div onClick={() => adminToggleTask(task)} style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: '2px solid #d1d5db', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }} />
+                      )}
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{task.task}</p>
+                        <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                          Added by {task.added_by_name} · {new Date(task.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      {isManual ? (
+                        <button
+                          onClick={() => setApprovingTask(isApproving ? null : { task, time: suggestedTime, date: taskDate })}
+                          style={{ ...btnSmPrimary, padding: '5px 12px', background: isApproving ? '#f1f5f9' : undefined, color: isApproving ? '#475569' : undefined, boxShadow: isApproving ? 'none' : undefined }}
+                        >
+                          {isApproving ? 'Cancel' : '✅ Approve'}
+                        </button>
+                      ) : (
+                        <button onClick={() => adminDeleteTask(task.id)} style={{ ...btnSmDanger, padding: '4px 10px' }}>🗑</button>
+                      )}
                     </div>
-                    <button onClick={() => adminDeleteTask(task.id)} style={{ ...btnSmDanger, padding: '4px 10px' }}>🗑</button>
+
+                    {/* Inline approval form */}
+                    {isApproving && (
+                      <div style={{ background: '#f8f9fa', borderRadius: 12, padding: '14px 16px', marginBottom: 10, border: '1px solid #e5e9f0' }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 10 }}>
+                          Approve {task.task.includes('check-in') ? 'check-in' : 'check-out'} for <strong>{task.added_by_name}</strong>
+                        </p>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                          <div>
+                            <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>
+                              Date
+                            </label>
+                            <input
+                              type="date"
+                              value={approvingTask.date}
+                              onChange={e => setApprovingTask({ ...approvingTask, date: e.target.value })}
+                              style={{ padding: '7px 10px', borderRadius: 8, border: '1.5px solid #e5e9f0', fontSize: 13, width: 'auto' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>
+                              Time
+                            </label>
+                            <input
+                              type="time"
+                              value={approvingTask.time}
+                              onChange={e => setApprovingTask({ ...approvingTask, time: e.target.value })}
+                              style={{ padding: '7px 10px', borderRadius: 8, border: '1.5px solid #e5e9f0', fontSize: 13, width: 'auto' }}
+                            />
+                          </div>
+                          <button onClick={approveManualRequest} style={{ ...btnSmPrimary }}>
+                            Confirm & Log
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ))}
+                )})}
               </div>
             )}
 
