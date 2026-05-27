@@ -182,6 +182,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
     const { data } = await supabase
       .from('handover')
       .select('*')
+      .eq('deleted', false)
       .order('created_at', { ascending: false })
     if (data) setHandoverTasks(data)
   }
@@ -211,7 +212,11 @@ export default function EmployeeDashboard({ user, onLogout }) {
   }
 
   const deleteTask = async (id) => {
-    await supabase.from('handover').delete().eq('id', id)
+    await supabase.from('handover').update({
+      deleted: true,
+      deleted_by_name: user.name,
+      deleted_at: new Date().toISOString()
+    }).eq('id', id)
     fetchHandover()
   }
 
