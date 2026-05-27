@@ -63,8 +63,6 @@ const fetchHandover = async () => {
     if (data) setHandoverTasks(data)
   }
 
-  useEffect(() => { fetchAll() }, [])
-
   const fetchAll = async (weekFilter = null) => {
     setLoading(true)
     try {
@@ -96,6 +94,9 @@ const fetchHandover = async () => {
     }
   }
 
+  useEffect(() => { fetchAll(); fetchHandover() }, [])
+
+  
   const addEmployee = async () => {
     if (!newName.trim() || newPin.length !== 4) return
     await supabase.from('employees').insert({ name: newName.trim(), pin: newPin, role: newRole })
@@ -551,7 +552,7 @@ const fetchHandover = async () => {
           </div>
         )}
       </div>
-      
+
       {/* Handover Tab */}
         {tab === 'handover' && (
           <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
