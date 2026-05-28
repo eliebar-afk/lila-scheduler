@@ -79,11 +79,12 @@ export function StockAdmin() {
   }
 
   const fetchLogs = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('stock_logs')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(100)
+    if (error) console.error('stock_logs fetch error:', error)
     setLogs(data || [])
   }
 
@@ -380,7 +381,7 @@ export function StockEmployee({ user }) {
 
   const writeLog = async (item, change, quantityBefore, quantityAfter) => {
     const cat = categories.find(c => c.id === item.category_id)
-    await supabase.from('stock_logs').insert({
+    const { error } = await supabase.from('stock_logs').insert({
       item_id: item.id,
       item_name: item.name,
       unit: item.unit || '',
@@ -391,6 +392,7 @@ export function StockEmployee({ user }) {
       quantity_before: quantityBefore,
       quantity_after: quantityAfter,
     })
+    if (error) console.error('stock_logs insert error:', error)
   }
 
   const adjust = async (item, delta) => {
