@@ -750,7 +750,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
         )}
 
         {/* ── Stock Tab ── */}
-        {tab === 'stock' && <StockEmployee />}
+        {tab === 'stock' && <StockEmployee user={user} />}
 
         {/* ── Handover Tab ── */}
         {tab === 'handover' && (

@@ -48,18 +48,22 @@ const inputStyle = {
 export function StockAdmin() {
   const [categories, setCategories] = useState([])
   const [items, setItems] = useState([])
+  const [logs, setLogs] = useState([])
   const [newCatName, setNewCatName] = useState('')
   const [editCat, setEditCat] = useState(null)
   const [newItem, setNewItem] = useState({})
   const [editItem, setEditItem] = useState(null)
+  const [showLog, setShowLog] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchAll()
+    fetchLogs()
     const channel = supabase
       .channel('stock-admin')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_categories' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_items' }, fetchAll)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stock_logs' }, fetchLogs)
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [])
@@ -72,6 +76,15 @@ export function StockAdmin() {
     setCategories(cats || [])
     setItems(its || [])
     setLoading(false)
+  }
+
+  const fetchLogs = async () => {
+    const { data } = await supabase
+      .from('stock_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100)
+    setLogs(data || [])
   }
 
   const addCategory = async () => {
@@ -138,6 +151,89 @@ export function StockAdmin() {
         </div>
       </div>
 
+      {/* Activity Log toggle */}
+      <div
+        onClick={() => setShowLog(v => !v)}
+        style={{
+          ...card,
+          cursor: 'pointer',
+          padding: '14px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: showLog ? '#f8f9fa' : 'white',
+          border: showLog ? '1.5px solid #e5e9f0' : '1px solid rgba(0,0,0,0.05)',
+        }}
+      >
+        <div>
+          <p style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>📋 Activity Log</p>
+          <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+            {logs.length > 0
+              ? `${logs.length} entr${logs.length === 1 ? 'y' : 'ies'} — last by ${logs[0].employee_name}`
+              : 'No activity yet'}
+          </p>
+        </div>
+        <span style={{ fontSize: 18, color: '#9ca3af', transform: showLog ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>›</span>
+      </div>
+
+      {showLog && (
+        <div style={card}>
+          {logs.length === 0 ? (
+            <p style={{ color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: '12px 0' }}>No stock changes logged yet.</p>
+          ) : (
+            logs.map(log => {
+              const isAdd = log.change > 0
+              return (
+                <div key={log.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 0',
+                  borderBottom: '1px solid #f3f4f6',
+                }}>
+                  {/* Change badge */}
+                  <div style={{
+                    flexShrink: 0,
+                    minWidth: 44,
+                    padding: '4px 8px',
+                    borderRadius: 8,
+                    background: isAdd ? '#edf8ee' : '#fef2f2',
+                    color: isAdd ? '#44ab51' : '#dc2626',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    textAlign: 'center',
+                  }}>
+                    {isAdd ? '+' : ''}{log.change}
+                  </div>
+
+                  {/* Details */}
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+                      {log.item_name}
+                      <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: 12, marginLeft: 6 }}>
+                        ({log.category_name})
+                      </span>
+                    </p>
+                    <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                      {log.employee_name} · {log.quantity_before} → {log.quantity_after}
+                      {log.unit ? ` ${log.unit}` : ''}
+                    </p>
+                  </div>
+
+                  {/* Time */}
+                  <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    {new Date(log.created_at).toLocaleString('en-GB', {
+                      day: 'numeric', month: 'short',
+                      hour: '2-digit', minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+
       {categories.length === 0 && (
         <p style={{ color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>
           No categories yet. Add one above!
@@ -149,7 +245,6 @@ export function StockAdmin() {
         const ni = newItem[cat.id] || { name: '', unit: '', quantity: '' }
         return (
           <div key={cat.id} style={card}>
-            {/* Category header */}
             {editCat?.id === cat.id ? (
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 <input
@@ -182,18 +277,15 @@ export function StockAdmin() {
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                     <div style={{ flex: 2, minWidth: 100 }}>
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Name</label>
-                      <input value={editItem.name} onChange={e => setEditItem({ ...editItem, name: e.target.value })}
-                        style={inputStyle} />
+                      <input value={editItem.name} onChange={e => setEditItem({ ...editItem, name: e.target.value })} style={inputStyle} />
                     </div>
                     <div style={{ flex: 1, minWidth: 80 }}>
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Unit</label>
-                      <input placeholder="kg, L, pcs…" value={editItem.unit} onChange={e => setEditItem({ ...editItem, unit: e.target.value })}
-                        style={inputStyle} />
+                      <input placeholder="kg, L, pcs…" value={editItem.unit} onChange={e => setEditItem({ ...editItem, unit: e.target.value })} style={inputStyle} />
                     </div>
                     <div style={{ flex: 1, minWidth: 70 }}>
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Quantity</label>
-                      <input type="number" min={0} value={editItem.quantity} onChange={e => setEditItem({ ...editItem, quantity: e.target.value })}
-                        style={inputStyle} />
+                      <input type="number" min={0} value={editItem.quantity} onChange={e => setEditItem({ ...editItem, quantity: e.target.value })} style={inputStyle} />
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -260,7 +352,7 @@ export function StockAdmin() {
 }
 
 // ── Employee Stock Tab ───────────────────────────────────────
-export function StockEmployee() {
+export function StockEmployee({ user }) {
   const [categories, setCategories] = useState([])
   const [items, setItems] = useState([])
   const [customAmt, setCustomAmt] = useState({})
@@ -286,20 +378,39 @@ export function StockEmployee() {
     setLoading(false)
   }
 
+  const writeLog = async (item, change, quantityBefore, quantityAfter) => {
+    const cat = categories.find(c => c.id === item.category_id)
+    await supabase.from('stock_logs').insert({
+      item_id: item.id,
+      item_name: item.name,
+      unit: item.unit || '',
+      category_name: cat?.name || '',
+      employee_id: user.id,
+      employee_name: user.name,
+      change,
+      quantity_before: quantityBefore,
+      quantity_after: quantityAfter,
+    })
+  }
+
   const adjust = async (item, delta) => {
     const newQty = Math.max(0, item.quantity + delta)
-    // Optimistic update
+    const actualDelta = newQty - item.quantity
+    if (actualDelta === 0) return
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: newQty } : i))
     await supabase.from('stock_items').update({ quantity: newQty }).eq('id', item.id)
+    await writeLog(item, actualDelta, item.quantity, newQty)
   }
 
   const applyCustom = async (item) => {
     const val = Number(customAmt[item.id])
     if (!val || isNaN(val)) return
     const newQty = Math.max(0, item.quantity + val)
+    const actualDelta = newQty - item.quantity
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: newQty } : i))
     setCustomAmt(prev => ({ ...prev, [item.id]: '' }))
     await supabase.from('stock_items').update({ quantity: newQty }).eq('id', item.id)
+    await writeLog(item, actualDelta, item.quantity, newQty)
   }
 
   if (loading) return (
