@@ -71,7 +71,7 @@ export function StockAdmin() {
   const fetchAll = async () => {
     const [{ data: cats }, { data: its }] = await Promise.all([
       supabase.from('stock_categories').select('*').order('name'),
-      supabase.from('stock_items').select('*').order('name'),
+      supabase.from('stock_items').select('*').order('created_at'),
     ])
     setCategories(cats || [])
     setItems(its || [])
@@ -79,10 +79,6 @@ export function StockAdmin() {
   }
 
   const fetchLogs = async () => {
-    // Auto-purge entries older than 7 days
-    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    await supabase.from('stock_logs').delete().lt('created_at', cutoff)
-
     const { data, error } = await supabase
       .from('stock_logs')
       .select('*')
@@ -390,7 +386,7 @@ export function StockEmployee({ user }) {
   const fetchAll = async () => {
     const [{ data: cats }, { data: its }] = await Promise.all([
       supabase.from('stock_categories').select('*').order('name'),
-      supabase.from('stock_items').select('*').order('name'),
+      supabase.from('stock_items').select('*').order('created_at'),
     ])
     setCategories(cats || [])
     setItems(its || [])
