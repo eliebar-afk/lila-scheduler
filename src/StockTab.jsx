@@ -79,6 +79,10 @@ export function StockAdmin() {
   }
 
   const fetchLogs = async () => {
+    // Auto-purge entries older than 7 days
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    await supabase.from('stock_logs').delete().lt('created_at', cutoff)
+
     const { data, error } = await supabase
       .from('stock_logs')
       .select('*')
@@ -86,6 +90,11 @@ export function StockAdmin() {
       .limit(100)
     if (error) console.error('stock_logs fetch error:', error)
     setLogs(data || [])
+  }
+
+  const clearAllLogs = async () => {
+    await supabase.from('stock_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    setLogs([])
   }
 
   const addCategory = async () => {
@@ -179,6 +188,15 @@ export function StockAdmin() {
 
       {showLog && (
         <div style={card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <p style={{ fontSize: 12, color: '#9ca3af' }}>Last 7 days · {logs.length} entr{logs.length === 1 ? 'y' : 'ies'}</p>
+            {logs.length > 0 && (
+              <button
+                onClick={() => { if (window.confirm('Clear all log entries?')) clearAllLogs() }}
+                style={{ ...btnDanger, padding: '5px 12px', fontSize: 12 }}
+              >🗑 Clear log</button>
+            )}
+          </div>
           {logs.length === 0 ? (
             <p style={{ color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: '12px 0' }}>No stock changes logged yet.</p>
           ) : (
