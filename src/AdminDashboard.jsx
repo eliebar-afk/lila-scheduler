@@ -355,7 +355,7 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
   }
 
   const publishSchedule = async () => {
-    await supabase.from('shifts').update({ published: true }).eq('published', false)
+    await supabase.from('shifts').update({ published: true }).eq('published', false).eq('week_start', getSchedulingWeek())
     await supabase.from('settings').upsert({ id: 'schedule_published_at', value: new Date().toISOString() })
     alert('Schedule published! Employees can now see their shifts.')
     fetchAll(viewingWeek)
