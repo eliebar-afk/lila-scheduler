@@ -32,11 +32,11 @@ const getShiftColor = (startTime) => {
 
 // Shared style tokens
 const card = {
-  background: 'white',
+  background: 'var(--card)',
   borderRadius: 16,
   padding: 20,
   boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.07)',
-  border: '1px solid rgba(0,0,0,0.05)',
+  border: '1px solid var(--border)',
 }
 const btnPrimary = {
   background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)',
@@ -69,14 +69,14 @@ const btnSmDanger = { ...btnDanger, padding: '6px 12px', fontSize: 13 }
 const selectStyle = {
   padding: '9px 12px',
   borderRadius: 10,
-  border: '1.5px solid #e5e9f0',
+  border: '1.5px solid var(--border-soft)',
   fontSize: 13,
-  background: 'white',
+  background: 'var(--card)',
   fontFamily: 'inherit',
-  color: '#111827',
+  color: 'var(--text)',
 }
 
-export default function AdminDashboard({ user, onLogout }) {
+export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMode }) {
   const [employees, setEmployees] = useState([])
   const [extraEmployees, setExtraEmployees] = useState([])
   const [shifts, setShifts] = useState([])
@@ -365,7 +365,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const getPref = (employeeId, day) => preferences.find(p => p.employee_id === employeeId && p.day === day)
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f4f8' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{
           width: 40, height: 40, borderRadius: '50%',
@@ -373,7 +373,7 @@ export default function AdminDashboard({ user, onLogout }) {
           margin: '0 auto 12px',
           animation: 'spin 0.8s linear infinite',
         }} />
-        <p style={{ color: '#9ca3af', fontSize: 14 }}>Loading…</p>
+        <p style={{ color: 'var(--text4)', fontSize: 14 }}>Loading…</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     </div>
@@ -389,7 +389,7 @@ export default function AdminDashboard({ user, onLogout }) {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f1f4f8' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Header */}
       <div style={{
         background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)',
@@ -403,22 +403,26 @@ export default function AdminDashboard({ user, onLogout }) {
           <h1 style={{ color: 'white', fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px' }}>Lila</h1>
           <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 1 }}>Admin Panel</p>
         </div>
-        <button onClick={onLogout} style={{
-          background: 'rgba(255,255,255,0.18)',
-          color: 'white',
-          fontSize: 13,
-          padding: '7px 16px',
-          borderRadius: 8,
-          backdropFilter: 'blur(4px)',
-        }}>
-          Logout
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            onClick={toggleDarkMode}
+            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={{ width: 40, height: 22, borderRadius: 11, background: 'rgba(255,255,255,0.25)', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+          >
+            <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'white', transition: 'transform 0.2s', transform: darkMode ? 'translateX(18px)' : 'translateX(0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>
+              {darkMode ? '🌙' : '☀️'}
+            </div>
+          </div>
+          <button onClick={onLogout} style={{ background: 'rgba(255,255,255,0.18)', color: 'white', fontSize: 13, padding: '7px 16px', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
       <div style={{
-        background: 'white',
-        borderBottom: '1px solid #e5e9f0',
+        background: 'var(--card)',
+        borderBottom: '1px solid var(--border-soft)',
         padding: '6px 16px',
         display: 'flex',
         gap: 4,
@@ -447,7 +451,7 @@ export default function AdminDashboard({ user, onLogout }) {
           <>
             <div style={{ ...card, marginBottom: 20 }}>
               <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Auto Schedule Generator</h2>
-              <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 16 }}>
+              <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
                 Builds the schedule from employee availability and your staffing rules.
               </p>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -490,7 +494,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '8px 12px', color: '#9ca3af', fontWeight: 600, fontSize: 12 }}>Employee</th>
+                    <th style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--text4)', fontWeight: 600, fontSize: 12 }}>Employee</th>
                     {DAYS.map(d => (
                       <th key={d} style={{
                         padding: '8px 4px',
@@ -508,8 +512,8 @@ export default function AdminDashboard({ user, onLogout }) {
                 </thead>
                 <tbody>
                   {employees.map(emp => (
-                    <tr key={emp.id} style={{ borderTop: '1px solid #f3f4f6' }}>
-                      <td style={{ padding: '8px 12px', fontWeight: 600, fontSize: 13, color: '#374151' }}>{emp.name}</td>
+                    <tr key={emp.id} style={{ borderTop: '1px solid var(--border-table)' }}>
+                      <td style={{ padding: '8px 12px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{emp.name}</td>
                       {DAYS.map(day => {
                         const shift = getShift(emp.id, day)
                         const pref = getPref(emp.id, day)
@@ -550,7 +554,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   ))}
                 </tbody>
               </table>
-              <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 12 }}>
+              <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 12 }}>
                 Colored = scheduled &nbsp;·&nbsp; Light green = available &nbsp;·&nbsp; Click any cell to add or edit a shift
               </p>
             </div>
@@ -562,11 +566,11 @@ export default function AdminDashboard({ user, onLogout }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div style={card}>
               <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Staffing Rules</h2>
-              <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 20 }}>Define how many staff you need per time slot.</p>
+              <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 20 }}>Define how many staff you need per time slot.</p>
 
               {/* Add new rule */}
-              <div style={{ background: '#f8f9fa', borderRadius: 12, padding: 16, marginBottom: 24, border: '1px solid #e5e9f0' }}>
-                <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: '#374151' }}>Add New Rule</p>
+              <div style={{ background: 'var(--raised)', borderRadius: 12, padding: 16, marginBottom: 24, border: '1px solid var(--border-soft)' }}>
+                <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: 'var(--text2)' }}>Add New Rule</p>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                   {[
                     { label: 'Day', key: 'day', options: DAYS },
@@ -574,7 +578,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     { label: 'To', key: 'end_time', options: HOURS_LATE },
                   ].map(({ label, key, options }) => (
                     <div key={key} style={{ flex: 1, minWidth: 100 }}>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>{label}</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>{label}</label>
                       <select value={newRule[key]} onChange={e => setNewRule({ ...newRule, [key]: e.target.value })} style={{ ...selectStyle, width: '100%' }}>
                         {options.map(o => <option key={o}>{o}</option>)}
                       </select>
@@ -585,11 +589,11 @@ export default function AdminDashboard({ user, onLogout }) {
                     { label: 'Max Staff', key: 'max_staff' },
                   ].map(({ label, key }) => (
                     <div key={key} style={{ flex: 1, minWidth: 80 }}>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>{label}</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>{label}</label>
                       <input
                         type="number" min={1} max={20} value={newRule[key]}
                         onChange={e => setNewRule({ ...newRule, [key]: Number(e.target.value) })}
-                        style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid #e5e9f0', fontSize: 13, width: '100%' }}
+                        style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid var(--border-soft)', fontSize: 13, width: '100%' }}
                       />
                     </div>
                   ))}
@@ -613,7 +617,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 { label: 'To', key: 'end_time', options: HOURS_LATE },
                               ].map(({ label, key, options }) => (
                                 <div key={key} style={{ flex: 1, minWidth: 90 }}>
-                                  <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>{label}</label>
+                                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 3 }}>{label}</label>
                                   <select value={editRule[key]} onChange={e => setEditRule({ ...editRule, [key]: e.target.value })} style={{ ...selectStyle, width: '100%', fontSize: 12 }}>
                                     {options.map(h => <option key={h}>{h}</option>)}
                                   </select>
@@ -624,10 +628,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                 { label: 'Max', key: 'max_staff' },
                               ].map(({ label, key }) => (
                                 <div key={key} style={{ flex: 1, minWidth: 60 }}>
-                                  <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>{label}</label>
+                                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 3 }}>{label}</label>
                                   <input type="number" min={1} max={20} value={editRule[key]}
                                     onChange={e => setEditRule({ ...editRule, [key]: Number(e.target.value) })}
-                                    style={{ padding: '7px 10px', borderRadius: 8, border: '1.5px solid #e5e9f0', fontSize: 12, width: '100%' }} />
+                                    style={{ padding: '7px 10px', borderRadius: 8, border: '1.5px solid var(--border-soft)', fontSize: 12, width: '100%' }} />
                                 </div>
                               ))}
                             </div>
@@ -639,12 +643,12 @@ export default function AdminDashboard({ user, onLogout }) {
                         ) : (
                           <div style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            padding: '11px 14px', background: '#f8f9fa', borderRadius: 10, marginBottom: 8,
-                            border: '1px solid #e5e9f0',
+                            padding: '11px 14px', background: 'var(--raised)', borderRadius: 10, marginBottom: 8,
+                            border: '1px solid var(--border-soft)',
                           }}>
                             <div>
-                              <span style={{ fontWeight: 600, fontSize: 13, color: '#111827' }}>{rule.start_time} – {rule.end_time}</span>
-                              <span style={{ color: '#9ca3af', fontSize: 12, marginLeft: 12 }}>Min: {rule.min_staff} · Max: {rule.max_staff} staff</span>
+                              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{rule.start_time} – {rule.end_time}</span>
+                              <span style={{ color: 'var(--text4)', fontSize: 12, marginLeft: 12 }}>Min: {rule.min_staff} · Max: {rule.max_staff} staff</span>
                             </div>
                             <div style={{ display: 'flex', gap: 8 }}>
                               <button onClick={() => setEditRule(rule)} style={{ ...btnSmSecondary, padding: '5px 10px', fontSize: 12 }}>✏️</button>
@@ -672,15 +676,15 @@ export default function AdminDashboard({ user, onLogout }) {
             <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Manage Staff</h2>
             <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div style={{ flex: 2, minWidth: 120 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 5 }}>Name</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>Name</label>
                 <input placeholder="Employee name" value={newName} onChange={e => setNewName(e.target.value)} />
               </div>
               <div style={{ flex: 1, minWidth: 100 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 5 }}>PIN</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>PIN</label>
                 <input placeholder="4-digit PIN" maxLength={4} value={newPin} onChange={e => setNewPin(e.target.value)} />
               </div>
               <div style={{ flex: 1, minWidth: 100 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 5 }}>Role</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>Role</label>
                 <select value={newRole} onChange={e => setNewRole(e.target.value)} style={{ ...selectStyle, width: '100%' }}>
                   <option value="employee">Staff</option>
                   <option value="extra">Extra</option>
@@ -689,13 +693,13 @@ export default function AdminDashboard({ user, onLogout }) {
               <button onClick={addEmployee} style={{ ...btnPrimary, padding: '10px 20px' }}>+ Add</button>
             </div>
             {employees.length === 0 ? (
-              <p style={{ color: '#9ca3af', fontSize: 14 }}>No employees yet. Add one above!</p>
+              <p style={{ color: 'var(--text4)', fontSize: 14 }}>No employees yet. Add one above!</p>
             ) : employees.map(emp => (
               <EmployeeRow key={emp.id} emp={emp} onRemove={removeEmployee} supabase={supabase} onUpdate={() => fetchAll(viewingWeek)} />
             ))}
             {extraEmployees.length > 0 && (
               <>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#9ca3af', margin: '20px 0 12px' }}>Extra Workers</p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text4)', margin: '20px 0 12px' }}>Extra Workers</p>
                 {extraEmployees.map(emp => (
                   <EmployeeRow key={emp.id} emp={emp} onRemove={removeEmployee} supabase={supabase} onUpdate={() => fetchAll(viewingWeek)} />
                 ))}
@@ -711,7 +715,7 @@ export default function AdminDashboard({ user, onLogout }) {
         {tab === 'handover' && (
           <div style={card}>
             <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Handover List</h2>
-            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 20 }}>Full history including completed and deleted items.</p>
+            <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 20 }}>Full history including completed and deleted items.</p>
 
             {handoverTasks.filter(t => !t.completed && !t.deleted).length > 0 && (
               <div style={{ marginBottom: 20 }}>
@@ -723,7 +727,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   const suggestedTime = timeMatch ? timeMatch[1] : new Date().toTimeString().slice(0, 5)
                   const taskDate = new Date(task.created_at).toISOString().split('T')[0]
                   return (
-                  <div key={task.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <div key={task.id} style={{ borderBottom: '1px solid var(--border-table)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0' }}>
                       {isManual ? (
                         <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, background: '#fffbeb', border: '2px solid #fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -733,8 +737,8 @@ export default function AdminDashboard({ user, onLogout }) {
                         <div onClick={() => adminToggleTask(task)} style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: '2px solid #d1d5db', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }} />
                       )}
                       <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{task.task}</p>
-                        <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                        <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{task.task}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2 }}>
                           Added by {task.added_by_name} · {new Date(task.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
@@ -752,31 +756,31 @@ export default function AdminDashboard({ user, onLogout }) {
 
                     {/* Inline approval form */}
                     {isApproving && (
-                      <div style={{ background: '#f8f9fa', borderRadius: 12, padding: '14px 16px', marginBottom: 10, border: '1px solid #e5e9f0' }}>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 10 }}>
+                      <div style={{ background: 'var(--raised)', borderRadius: 12, padding: '14px 16px', marginBottom: 10, border: '1px solid var(--border-soft)' }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', marginBottom: 10 }}>
                           Approve {task.task.includes('check-in') ? 'check-in' : 'check-out'} for <strong>{task.added_by_name}</strong>
                         </p>
                         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                           <div>
-                            <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>
                               Date
                             </label>
                             <input
                               type="date"
                               value={approvingTask.date}
                               onChange={e => setApprovingTask({ ...approvingTask, date: e.target.value })}
-                              style={{ padding: '7px 10px', borderRadius: 8, border: '1.5px solid #e5e9f0', fontSize: 13, width: 'auto' }}
+                              style={{ padding: '7px 10px', borderRadius: 8, border: '1.5px solid var(--border-soft)', fontSize: 13, width: 'auto' }}
                             />
                           </div>
                           <div>
-                            <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>
                               Time
                             </label>
                             <input
                               type="time"
                               value={approvingTask.time}
                               onChange={e => setApprovingTask({ ...approvingTask, time: e.target.value })}
-                              style={{ padding: '7px 10px', borderRadius: 8, border: '1.5px solid #e5e9f0', fontSize: 13, width: 'auto' }}
+                              style={{ padding: '7px 10px', borderRadius: 8, border: '1.5px solid var(--border-soft)', fontSize: 13, width: 'auto' }}
                             />
                           </div>
                           <button onClick={approveManualRequest} style={{ ...btnSmPrimary }}>
@@ -794,7 +798,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <div style={{ marginBottom: 20 }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: '#44ab51', marginBottom: 10, letterSpacing: '0.03em', textTransform: 'uppercase' }}>Completed</p>
                 {handoverTasks.filter(t => t.completed && !t.deleted).map(task => (
-                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid var(--border-table)' }}>
                     <div onClick={() => adminToggleTask(task)} style={{
                       width: 22, height: 22, borderRadius: 6, flexShrink: 0,
                       background: '#44ab51', cursor: 'pointer',
@@ -803,8 +807,8 @@ export default function AdminDashboard({ user, onLogout }) {
                       <span style={{ color: 'white', fontSize: 13 }}>✓</span>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 14, fontWeight: 500, textDecoration: 'line-through', color: '#9ca3af' }}>{task.task}</p>
-                      <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                      <p style={{ fontSize: 14, fontWeight: 500, textDecoration: 'line-through', color: 'var(--text4)' }}>{task.task}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2 }}>
                         Added by {task.added_by_name} · Completed by {task.completed_by_name} · {task.completed_at ? new Date(task.completed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                       </p>
                     </div>
@@ -816,13 +820,13 @@ export default function AdminDashboard({ user, onLogout }) {
 
             {handoverTasks.filter(t => t.deleted).length > 0 && (
               <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', marginBottom: 10, letterSpacing: '0.03em', textTransform: 'uppercase' }}>Deleted by employees</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text4)', marginBottom: 10, letterSpacing: '0.03em', textTransform: 'uppercase' }}>Deleted by employees</p>
                 {handoverTasks.filter(t => t.deleted).map(task => (
-                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid #f3f4f6', opacity: 0.5 }}>
+                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid var(--border-table)', opacity: 0.5 }}>
                     <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: '2px solid #d1d5db' }} />
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 14, textDecoration: 'line-through', color: '#9ca3af' }}>{task.task}</p>
-                      <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                      <p style={{ fontSize: 14, textDecoration: 'line-through', color: 'var(--text4)' }}>{task.task}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2 }}>
                         Added by {task.added_by_name}{task.completed_by_name ? ` · Completed by ${task.completed_by_name}` : ''} · Deleted by {task.deleted_by_name} · {task.deleted_at ? new Date(task.deleted_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                       </p>
                     </div>
@@ -833,7 +837,7 @@ export default function AdminDashboard({ user, onLogout }) {
             )}
 
             {handoverTasks.length === 0 && (
-              <p style={{ color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>No handover tasks yet.</p>
+              <p style={{ color: 'var(--text4)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>No handover tasks yet.</p>
             )}
           </div>
         )}
@@ -857,21 +861,21 @@ export default function AdminDashboard({ user, onLogout }) {
             maxWidth: 340,
             boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
           }}>
-            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 4, color: '#111827' }}>
+            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 4, color: 'var(--text)' }}>
               {editShift.id ? 'Edit Shift' : 'Add Shift'}
             </h3>
-            <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 22 }}>
+            <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 22 }}>
               {employees.find(e => e.id === editShift.employee_id)?.name} — {editShift.day}
             </p>
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Start Time</label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>Start Time</label>
               <select value={editShift.start_time} onChange={e => setEditShift({ ...editShift, start_time: e.target.value })}
                 style={{ ...selectStyle, width: '100%' }}>
                 {(editShift.day === 'Friday' || editShift.day === 'Saturday' ? HOURS_LATE : HOURS).map(h => <option key={h}>{h}</option>)}
               </select>
             </div>
             <div style={{ marginBottom: 24 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>End Time</label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>End Time</label>
               <select value={editShift.end_time} onChange={e => setEditShift({ ...editShift, end_time: e.target.value })}
                 style={{ ...selectStyle, width: '100%' }}>
                 {(editShift.day === 'Friday' || editShift.day === 'Saturday' ? HOURS_LATE : HOURS).map(h => <option key={h}>{h}</option>)}
@@ -978,7 +982,7 @@ function AttendanceReport({ employees, supabase, shifts }) {
 
   const weekOptions = getWeekOptions()
   const monthOptions = getMonthOptions()
-  const selectStyle = { padding: '9px 12px', borderRadius: 10, border: '1.5px solid #e5e9f0', fontSize: 13, background: 'white', fontFamily: 'inherit', color: '#111827' }
+  const selectStyle = { padding: '9px 12px', borderRadius: 10, border: '1.5px solid var(--border-soft)', fontSize: 13, background: 'white', fontFamily: 'inherit', color: 'var(--text)' }
   const cardStyle = { background: 'white', borderRadius: 16, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.07)', border: '1px solid rgba(0,0,0,0.05)' }
 
   return (
@@ -999,7 +1003,7 @@ function AttendanceReport({ employees, supabase, shifts }) {
       </div>
 
       <div style={cardStyle}>
-        <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 8 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 8 }}>
           {view === 'weekly' ? 'Select Week' : 'Select Month'}
         </label>
         <select
@@ -1015,15 +1019,15 @@ function AttendanceReport({ employees, supabase, shifts }) {
 
       {/* Team totals */}
       <div style={cardStyle}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: '#111827' }}>Team Totals</h2>
+        <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Team Totals</h2>
         <div style={{ display: 'flex', gap: 10 }}>
           {[
-            { label: 'Total Scheduled', value: `${totalScheduled} hrs`, bg: '#f8f9fa', color: '#374151' },
+            { label: 'Total Scheduled', value: `${totalScheduled} hrs`, bg: '#f8f9fa', color: 'var(--text2)' },
             { label: 'Total Worked', value: `${totalWorked} hrs`, bg: '#edf8ee', color: '#44ab51' },
             { label: 'Difference', value: `${totalDiff > 0 ? '+' : ''}${totalDiff} hrs`, bg: totalDiff === 0 ? '#edf8ee' : totalDiff > 0 ? '#fffbeb' : '#fef2f2', color: totalDiff === 0 ? '#44ab51' : totalDiff > 0 ? '#d97706' : '#dc2626' },
           ].map(({ label, value, bg, color }) => (
             <div key={label} style={{ flex: 1, background: bg, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>{label}</p>
+              <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 4 }}>{label}</p>
               <p style={{ fontWeight: 700, fontSize: 20, color }}>{value}</p>
             </div>
           ))}
@@ -1041,8 +1045,8 @@ function AttendanceReport({ employees, supabase, shifts }) {
         transition: 'all 0.15s',
       }}>
         <div>
-          <p style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Scheduled vs Actual Hours</p>
-          <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Compare planned shifts with real check-in hours</p>
+          <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Scheduled vs Actual Hours</p>
+          <p style={{ fontSize: 12, color: 'var(--text4)', marginTop: 2 }}>Compare planned shifts with real check-in hours</p>
         </div>
         <div style={{
           width: 22, height: 22, borderRadius: 6,
@@ -1056,13 +1060,13 @@ function AttendanceReport({ employees, supabase, shifts }) {
       </div>
 
       {loading ? (
-        <div style={{ padding: 20, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>
+        <div style={{ padding: 20, textAlign: 'center', color: 'var(--text4)' }}>Loading…</div>
       ) : employees.map(emp => {
         const { actualHours, scheduledHours, diff, records: empRecords } = getEmployeeData(emp.id)
         return (
           <div key={emp.id} style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{emp.name}</span>
+              <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{emp.name}</span>
               <span style={{ background: '#edf8ee', color: '#44ab51', fontWeight: 700, padding: '4px 12px', borderRadius: 20, fontSize: 13 }}>
                 {actualHours} hrs worked
               </span>
@@ -1070,19 +1074,19 @@ function AttendanceReport({ employees, supabase, shifts }) {
             {showComparison && (
               <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                 {[
-                  { label: 'Scheduled', value: `${scheduledHours} hrs`, bg: '#f8f9fa', color: '#374151' },
+                  { label: 'Scheduled', value: `${scheduledHours} hrs`, bg: '#f8f9fa', color: 'var(--text2)' },
                   { label: 'Actual', value: `${actualHours} hrs`, bg: '#f8f9fa', color: '#44ab51' },
                   { label: 'Difference', value: `${diff > 0 ? '+' : ''}${diff} hrs`, bg: diff === 0 ? '#edf8ee' : diff > 0 ? '#fffbeb' : '#fef2f2', color: diff === 0 ? '#44ab51' : diff > 0 ? '#d97706' : '#dc2626' },
                 ].map(({ label, value, bg, color }) => (
                   <div key={label} style={{ flex: 1, background: bg, borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 11, color: '#9ca3af', marginBottom: 2 }}>{label}</p>
+                    <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 2 }}>{label}</p>
                     <p style={{ fontWeight: 700, fontSize: 15, color }}>{value}</p>
                   </div>
                 ))}
               </div>
             )}
             {empRecords.length === 0 ? (
-              <p style={{ color: '#9ca3af', fontSize: 13 }}>No check-ins recorded</p>
+              <p style={{ color: 'var(--text4)', fontSize: 13 }}>No check-ins recorded</p>
             ) : (
               empRecords.map(r => (
                 <AttendanceRow key={r.id} record={r} supabase={supabase} onUpdate={fetchRecords} />
@@ -1114,17 +1118,17 @@ function AttendanceRow({ record, supabase, onUpdate }) {
 
   if (editing) {
     return (
-      <div style={{ padding: '10px 0', borderTop: '1px solid #f3f4f6' }}>
-        <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>{record.date}</p>
+      <div style={{ padding: '10px 0', borderTop: '1px solid var(--border-table)' }}>
+        <p style={{ fontSize: 12, color: 'var(--text4)', marginBottom: 8 }}>{record.date}</p>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           {[
             { label: 'Check In', value: checkIn, setter: setCheckIn },
             { label: 'Check Out', value: checkOut, setter: setCheckOut },
           ].map(({ label, value, setter }) => (
             <div key={label}>
-              <label style={{ fontSize: 11, color: '#9ca3af', display: 'block', marginBottom: 2 }}>{label}</label>
+              <label style={{ fontSize: 11, color: 'var(--text4)', display: 'block', marginBottom: 2 }}>{label}</label>
               <input type="time" value={value} onChange={e => setter(e.target.value)}
-                style={{ padding: '7px 10px', borderRadius: 8, border: '1.5px solid #e5e9f0', fontSize: 13, width: 'auto' }} />
+                style={{ padding: '7px 10px', borderRadius: 8, border: '1.5px solid var(--border-soft)', fontSize: 13, width: 'auto' }} />
             </div>
           ))}
           <div style={{ display: 'flex', gap: 6 }}>
@@ -1139,9 +1143,9 @@ function AttendanceRow({ record, supabase, onUpdate }) {
   }
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderTop: '1px solid #f3f4f6', fontSize: 13 }}>
-      <span style={{ color: '#6b7280' }}>{record.date}</span>
-      <span style={{ color: '#374151' }}>{record.check_in || '—'} → {record.check_out || '—'}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderTop: '1px solid var(--border-table)', fontSize: 13 }}>
+      <span style={{ color: 'var(--text3)' }}>{record.date}</span>
+      <span style={{ color: 'var(--text2)' }}>{record.check_in || '—'} → {record.check_out || '—'}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ color: '#44ab51', fontWeight: 600 }}>
           {record.check_in && record.check_out ? (() => {
@@ -1182,14 +1186,14 @@ function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
 
   if (editing) {
     return (
-      <div style={{ padding: '14px 0', borderBottom: '1px solid #f3f4f6' }}>
+      <div style={{ padding: '14px 0', borderBottom: '1px solid var(--border-table)' }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 10 }}>
           <div style={{ flex: 2, minWidth: 120 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>Name</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>Name</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Name" />
           </div>
           <div style={{ flex: 1, minWidth: 100 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>PIN</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>PIN</label>
             <input value={pin} onChange={e => setPin(e.target.value)} placeholder="4-digit PIN" maxLength={4} />
           </div>
         </div>
@@ -1199,9 +1203,9 @@ function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
             { label: 'Max days/week', value: maxDays, setter: setMaxDays },
           ].map(({ label, value, setter }) => (
             <div key={label} style={{ flex: 1, minWidth: 100 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>{label}</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>{label}</label>
               <input type="number" min={0} max={7} value={value} onChange={e => setter(Number(e.target.value))}
-                style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: '1.5px solid #e5e9f0', fontSize: 14 }} />
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: '1.5px solid var(--border-soft)', fontSize: 14 }} />
             </div>
           ))}
         </div>
@@ -1216,9 +1220,9 @@ function EmployeeRow({ emp, onRemove, supabase, onUpdate }) {
   }
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: '1px solid #f3f4f6' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: '1px solid var(--border-table)' }}>
       <div>
-        <span style={{ fontWeight: 600, color: '#111827' }}>{emp.name}</span>
+        <span style={{ fontWeight: 600, color: 'var(--text)' }}>{emp.name}</span>
         <span style={{ color: '#d1d5db', fontSize: 13, marginLeft: 10 }}>PIN: {emp.pin}</span>
         <span style={{ color: '#44ab51', fontSize: 12, marginLeft: 10, fontWeight: 600 }}>{emp.min_days || 1}–{emp.max_days || 7} days/week</span>
       </div>

@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
 const card = {
-  background: 'white',
+  background: 'var(--card)',
   borderRadius: 16,
   padding: 20,
   boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.07)',
-  border: '1px solid rgba(0,0,0,0.05)',
+  border: '1px solid var(--border)',
 }
 const btnPrimary = {
   background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)',
@@ -36,10 +36,11 @@ const btnDanger = {
 const inputStyle = {
   padding: '9px 12px',
   borderRadius: 10,
-  border: '1.5px solid #e5e9f0',
+  border: '1.5px solid var(--border-soft)',
   fontSize: 13,
   fontFamily: 'inherit',
-  color: '#111827',
+  color: 'var(--text)',
+  background: 'var(--input)',
   outline: 'none',
   width: '100%',
 }
@@ -141,7 +142,7 @@ export function StockAdmin() {
     await supabase.from('stock_items').delete().eq('id', id)
   }
 
-  if (loading) return <div style={{ padding: 20, color: '#9ca3af', fontSize: 14 }}>Loading stock…</div>
+  if (loading) return <div style={{ padding: 20, color: 'var(--text4)', fontSize: 14 }}>Loading stock…</div>
 
   const expandedCategory = categories.find(c => c.id === expandedCat)
   const expandedItems = expandedCategory ? items.filter(i => i.category_id === expandedCategory.id) : []
@@ -152,7 +153,7 @@ export function StockAdmin() {
       {/* Add category */}
       <div style={card}>
         <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Stock Management</h2>
-        <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 16 }}>
+        <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
           Manage categories and items. Employees can adjust quantities.
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -177,25 +178,25 @@ export function StockAdmin() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: showLog ? '#f8f9fa' : 'white',
-          border: showLog ? '1.5px solid #e5e9f0' : '1px solid rgba(0,0,0,0.05)',
+          background: showLog ? 'var(--raised)' : 'var(--card)',
+          border: showLog ? '1.5px solid var(--border-soft)' : '1px solid var(--border)',
         }}
       >
         <div>
-          <p style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>📋 Activity Log</p>
-          <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+          <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>📋 Activity Log</p>
+          <p style={{ fontSize: 12, color: 'var(--text4)', marginTop: 2 }}>
             {logs.length > 0
               ? `${logs.length} entr${logs.length === 1 ? 'y' : 'ies'} — last by ${logs[0].employee_name}`
               : 'No activity yet'}
           </p>
         </div>
-        <span style={{ fontSize: 18, color: '#9ca3af', transform: showLog ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>›</span>
+        <span style={{ fontSize: 18, color: 'var(--text4)', transform: showLog ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>›</span>
       </div>
 
       {showLog && (
         <div style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <p style={{ fontSize: 12, color: '#9ca3af' }}>Last 7 days · {logs.length} entr{logs.length === 1 ? 'y' : 'ies'}</p>
+            <p style={{ fontSize: 12, color: 'var(--text4)' }}>Last 7 days · {logs.length} entr{logs.length === 1 ? 'y' : 'ies'}</p>
             {logs.length > 0 && (
               <button
                 onClick={() => { if (window.confirm('Clear all log entries?')) clearAllLogs() }}
@@ -204,7 +205,7 @@ export function StockAdmin() {
             )}
           </div>
           {logs.length === 0 ? (
-            <p style={{ color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: '12px 0' }}>No stock changes logged yet.</p>
+            <p style={{ color: 'var(--text4)', fontSize: 14, textAlign: 'center', padding: '12px 0' }}>No stock changes logged yet.</p>
           ) : (
             logs.map(log => {
               const isAdd = log.change > 0
@@ -214,7 +215,7 @@ export function StockAdmin() {
                   alignItems: 'center',
                   gap: 12,
                   padding: '10px 0',
-                  borderBottom: '1px solid #f3f4f6',
+                  borderBottom: '1px solid var(--border-table)',
                 }}>
                   <div style={{
                     flexShrink: 0,
@@ -230,18 +231,18 @@ export function StockAdmin() {
                     {isAdd ? '+' : ''}{log.change}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
                       {log.item_name}
-                      <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: 12, marginLeft: 6 }}>
+                      <span style={{ color: 'var(--text4)', fontWeight: 400, fontSize: 12, marginLeft: 6 }}>
                         ({log.category_name})
                       </span>
                     </p>
-                    <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                    <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2 }}>
                       {log.employee_name} · {log.quantity_before} → {log.quantity_after}
                       {log.unit ? ` ${log.unit}` : ''}
                     </p>
                   </div>
-                  <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text4)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     {new Date(log.created_at).toLocaleString('en-GB', {
                       day: 'numeric', month: 'short',
                       hour: '2-digit', minute: '2-digit',
@@ -256,12 +257,12 @@ export function StockAdmin() {
 
       {/* Category grid */}
       {categories.length === 0 ? (
-        <p style={{ color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>
+        <p style={{ color: 'var(--text4)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>
           No categories yet. Add one above!
         </p>
       ) : (
         <div style={card}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text4)', marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             Categories
           </p>
           <div style={{
@@ -279,8 +280,8 @@ export function StockAdmin() {
                   onClick={() => setExpandedCat(isSelected ? null : cat.id)}
                   style={{
                     position: 'relative',
-                    background: isSelected ? '#edf8ee' : '#f8f9fa',
-                    border: `2px solid ${isSelected ? '#44ab51' : '#e5e9f0'}`,
+                    background: isSelected ? '#edf8ee' : 'var(--raised)',
+                    border: `2px solid ${isSelected ? '#44ab51' : 'var(--border-soft)'}`,
                     borderRadius: 12,
                     padding: '14px 8px 12px',
                     cursor: 'pointer',
@@ -305,7 +306,7 @@ export function StockAdmin() {
                   }}>
                     {cat.name}
                   </div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text4)', marginTop: 4 }}>
                     {catItems.length} item{catItems.length !== 1 ? 's' : ''}
                   </div>
                 </div>
@@ -341,7 +342,7 @@ export function StockAdmin() {
           )}
 
           {expandedItems.length === 0 && (
-            <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 12 }}>No items yet.</p>
+            <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 12 }}>No items yet.</p>
           )}
 
           {expandedItems.map(item => (
@@ -349,15 +350,15 @@ export function StockAdmin() {
               <div key={item.id} style={{ background: '#edf8ee', borderRadius: 10, padding: 14, marginBottom: 8, border: '1px solid #bbdfc0' }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                   <div style={{ flex: 2, minWidth: 100 }}>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Name</label>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 3 }}>Name</label>
                     <input value={editItem.name} onChange={e => setEditItem({ ...editItem, name: e.target.value })} style={inputStyle} />
                   </div>
                   <div style={{ flex: 1, minWidth: 80 }}>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Unit</label>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 3 }}>Unit</label>
                     <input placeholder="kg, L, pcs…" value={editItem.unit} onChange={e => setEditItem({ ...editItem, unit: e.target.value })} style={inputStyle} />
                   </div>
                   <div style={{ flex: 1, minWidth: 70 }}>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Quantity</label>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 3 }}>Quantity</label>
                     <input type="number" min={0} value={editItem.quantity} onChange={e => setEditItem({ ...editItem, quantity: e.target.value })} style={inputStyle} />
                   </div>
                 </div>
@@ -367,10 +368,10 @@ export function StockAdmin() {
                 </div>
               </div>
             ) : (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: '1px solid #f3f4f6' }}>
+              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: '1px solid var(--border-table)' }}>
                 <div>
-                  <span style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{item.name}</span>
-                  {item.unit && <span style={{ color: '#9ca3af', fontSize: 12, marginLeft: 8 }}>{item.unit}</span>}
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{item.name}</span>
+                  {item.unit && <span style={{ color: 'var(--text4)', fontSize: 12, marginLeft: 8 }}>{item.unit}</span>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontWeight: 700, fontSize: 17, color: item.quantity === 0 ? '#dc2626' : '#44ab51', minWidth: 36, textAlign: 'right' }}>
@@ -384,8 +385,8 @@ export function StockAdmin() {
           ))}
 
           {/* Add item form */}
-          <div style={{ background: '#f8f9fa', borderRadius: 10, padding: 14, marginTop: 14, border: '1px solid #e5e9f0' }}>
-            <p style={{ fontWeight: 600, fontSize: 12, color: '#6b7280', marginBottom: 10 }}>Add item to {expandedCategory.name}</p>
+          <div style={{ background: 'var(--raised)', borderRadius: 10, padding: 14, marginTop: 14, border: '1px solid var(--border-soft)' }}>
+            <p style={{ fontWeight: 600, fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>Add item to {expandedCategory.name}</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
               <div style={{ flex: 2, minWidth: 100 }}>
                 <input
@@ -488,12 +489,12 @@ export function StockEmployee({ user }) {
   }
 
   if (loading) return (
-    <div style={{ padding: 20, color: '#9ca3af', fontSize: 14, textAlign: 'center' }}>Loading stock…</div>
+    <div style={{ padding: 20, color: 'var(--text4)', fontSize: 14, textAlign: 'center' }}>Loading stock…</div>
   )
 
   if (categories.length === 0) return (
     <div style={{ ...card, textAlign: 'center', padding: '32px 20px' }}>
-      <p style={{ color: '#9ca3af', fontSize: 14 }}>No stock items yet. Ask your admin to set them up.</p>
+      <p style={{ color: 'var(--text4)', fontSize: 14 }}>No stock items yet. Ask your admin to set them up.</p>
     </div>
   )
 
@@ -504,7 +505,7 @@ export function StockEmployee({ user }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Category grid */}
       <div style={card}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text4)', marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           Categories
         </p>
         <div style={{
@@ -549,7 +550,7 @@ export function StockEmployee({ user }) {
                 }}>
                   {cat.name}
                 </div>
-                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--text4)', marginTop: 4 }}>
                   {catItems.length} item{catItems.length !== 1 ? 's' : ''}
                 </div>
               </div>
@@ -566,12 +567,12 @@ export function StockEmployee({ user }) {
             <div key={item.id} style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '12px 0',
-              borderBottom: idx < expandedItems.length - 1 ? '1px solid #f3f4f6' : 'none',
+              borderBottom: idx < expandedItems.length - 1 ? '1px solid var(--border-table)' : 'none',
               flexWrap: 'wrap',
             }}>
               <div style={{ flex: 1, minWidth: 100 }}>
-                <span style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{item.name}</span>
-                {item.unit && <span style={{ color: '#9ca3af', fontSize: 12, marginLeft: 6 }}>{item.unit}</span>}
+                <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{item.name}</span>
+                {item.unit && <span style={{ color: 'var(--text4)', fontSize: 12, marginLeft: 6 }}>{item.unit}</span>}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -611,7 +612,7 @@ export function StockEmployee({ user }) {
                   value={customAmt[item.id] || ''}
                   onChange={e => setCustomAmt(prev => ({ ...prev, [item.id]: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && applyCustom(item)}
-                  style={{ width: 60, padding: '6px 8px', borderRadius: 8, border: '1.5px solid #e5e9f0', fontSize: 13, textAlign: 'center', outline: 'none', fontFamily: 'inherit' }}
+                  style={{ width: 60, padding: '6px 8px', borderRadius: 8, border: '1.5px solid var(--border-soft)', fontSize: 13, textAlign: 'center', outline: 'none', fontFamily: 'inherit' }}
                 />
                 <button
                   onClick={() => applyCustom(item)}

@@ -48,21 +48,21 @@ const getWeekNumber = (dateStr) => {
 }
 
 const card = {
-  background: 'white',
+  background: 'var(--card)',
   borderRadius: 16,
   padding: 20,
   boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.07)',
-  border: '1px solid rgba(0,0,0,0.05)',
+  border: '1px solid var(--border)',
 }
 
 const selectStyle = {
   padding: '9px 36px 9px 12px',
   borderRadius: 10,
-  border: '1.5px solid #c3e6c8',
+  border: '1.5px solid var(--border-soft)',
   fontSize: 13,
-  background: 'white',
+  background: 'var(--card)',
   fontFamily: 'inherit',
-  color: '#111827',
+  color: 'var(--text)',
   width: '100%',
   appearance: 'none',
   WebkitAppearance: 'none',
@@ -75,11 +75,11 @@ const selectStyle = {
 const weekSelectStyle = {
   padding: '7px 32px 7px 10px',
   borderRadius: 9,
-  border: '1.5px solid #e5e9f0',
+  border: '1.5px solid var(--border-soft)',
   fontSize: 12,
-  background: 'white',
+  background: 'var(--card)',
   fontFamily: 'inherit',
-  color: '#374151',
+  color: 'var(--text2)',
   appearance: 'none',
   WebkitAppearance: 'none',
   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
@@ -88,7 +88,7 @@ const weekSelectStyle = {
   cursor: 'pointer',
 }
 
-export default function EmployeeDashboard({ user, onLogout }) {
+export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDarkMode }) {
   const [preferences, setPreferences] = useState({})
   const [schedule, setSchedule] = useState([])         // viewed week's team schedule
   const [myWeekShifts, setMyWeekShifts] = useState([]) // always current week, for hours summary
@@ -360,10 +360,10 @@ export default function EmployeeDashboard({ user, onLogout }) {
   }, 0)
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f4f8' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #e5e9f0', borderTopColor: '#44ab51', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
-        <p style={{ color: '#9ca3af', fontSize: 14 }}>Loading…</p>
+        <p style={{ color: 'var(--text4)', fontSize: 14 }}>Loading…</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     </div>
@@ -378,20 +378,31 @@ export default function EmployeeDashboard({ user, onLogout }) {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f1f4f8' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Header */}
       <div style={{ background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(68,171,81,0.25)' }}>
         <div>
           <h1 style={{ color: 'white', fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px' }}>Lila</h1>
           <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 1 }}>Hi, {user.name}!</p>
         </div>
-        <button onClick={onLogout} style={{ background: 'rgba(255,255,255,0.18)', color: 'white', fontSize: 13, padding: '7px 16px', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
-          Logout
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            onClick={toggleDarkMode}
+            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={{ width: 40, height: 22, borderRadius: 11, background: 'rgba(255,255,255,0.25)', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+          >
+            <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'white', transition: 'transform 0.2s', transform: darkMode ? 'translateX(18px)' : 'translateX(0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>
+              {darkMode ? '🌙' : '☀️'}
+            </div>
+          </div>
+          <button onClick={onLogout} style={{ background: 'rgba(255,255,255,0.18)', color: 'white', fontSize: 13, padding: '7px 16px', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ background: 'white', borderBottom: '1px solid #e5e9f0', padding: '6px 10px', display: 'flex', gap: 4 }}>
+      <div style={{ background: 'var(--card)', borderBottom: '1px solid var(--border-soft)', padding: '6px 10px', display: 'flex', gap: 4 }}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             flex: 1, padding: '8px 4px',
@@ -431,14 +442,14 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
             {/* My hours — always current week */}
             <div style={card}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 12 }}>My Hours This Week</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginBottom: 12 }}>My Hours This Week</p>
               <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1, background: '#f8f9fa', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>Scheduled</p>
-                  <p style={{ fontWeight: 700, fontSize: 22, color: '#374151' }}>{scheduledHours}<span style={{ fontSize: 13, fontWeight: 500, color: '#9ca3af' }}> hrs</span></p>
+                <div style={{ flex: 1, background: 'var(--raised)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 4 }}>Scheduled</p>
+                  <p style={{ fontWeight: 700, fontSize: 22, color: 'var(--text2)' }}>{scheduledHours}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text4)' }}> hrs</span></p>
                 </div>
                 <div style={{ flex: 1, background: '#edf8ee', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>Worked</p>
+                  <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 4 }}>Worked</p>
                   <p style={{ fontWeight: 700, fontSize: 22, color: '#44ab51' }}>{workedHours}<span style={{ fontSize: 13, fontWeight: 500, color: '#6dcf77' }}> hrs</span></p>
                 </div>
               </div>
@@ -447,7 +458,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
             {/* Team schedule */}
             <div style={{ ...card, overflowX: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 10, flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
                   Team Schedule — Week {getWeekNumber(viewingWeek)}
                 </h2>
                 <select
@@ -472,7 +483,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '8px 10px', color: '#9ca3af', fontWeight: 600, minWidth: 80, fontSize: 12 }}>Employee</th>
+                    <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text4)', fontWeight: 600, minWidth: 80, fontSize: 12 }}>Employee</th>
                     {DAYS.map(d => (
                       <th key={d} style={{ padding: '8px 4px', color: d === TODAY ? '#44ab51' : '#9ca3af', fontWeight: d === TODAY ? 800 : 600, textAlign: 'center', minWidth: 56, background: d === TODAY ? '#edf8ee' : 'transparent', borderRadius: 6, fontSize: 11 }}>
                         {d.slice(0, 3)}
@@ -482,7 +493,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 </thead>
                 <tbody>
                   {employees.map(emp => (
-                    <tr key={emp.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                    <tr key={emp.id} style={{ borderTop: '1px solid var(--border-table)' }}>
                       <td style={{ padding: '8px 10px', fontWeight: emp.id === user.id ? 700 : 500, color: emp.id === user.id ? '#44ab51' : '#374151', fontSize: 13 }}>
                         {emp.name}{emp.id === user.id ? ' (me)' : ''}
                       </td>
@@ -513,20 +524,20 @@ export default function EmployeeDashboard({ user, onLogout }) {
             {handoverTasks.filter(t => !t.completed).length > 0 && (
               <div style={card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>⏳ Pending Handover</h3>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>⏳ Pending Handover</h3>
                   <button onClick={() => setTab('handover')} style={{ background: '#edf8ee', color: '#44ab51', padding: '4px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8 }}>See all</button>
                 </div>
                 {handoverTasks.filter(t => !t.completed).slice(0, 3).map(task => (
-                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border-table)' }}>
                     <div onClick={() => toggleTask(task)} style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: '2px solid #d1d5db', cursor: 'pointer' }} />
                     <div>
-                      <p style={{ fontSize: 14, color: '#111827' }}>{task.task}</p>
-                      <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>Added by {task.added_by_name}</p>
+                      <p style={{ fontSize: 14, color: 'var(--text)' }}>{task.task}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 1 }}>Added by {task.added_by_name}</p>
                     </div>
                   </div>
                 ))}
                 {handoverTasks.filter(t => !t.completed).length > 3 && (
-                  <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 10, textAlign: 'center' }}>+{handoverTasks.filter(t => !t.completed).length - 3} more tasks</p>
+                  <p style={{ fontSize: 12, color: 'var(--text4)', marginTop: 10, textAlign: 'center' }}>+{handoverTasks.filter(t => !t.completed).length - 3} more tasks</p>
                 )}
               </div>
             )}
@@ -537,8 +548,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
         {tab === 'checkin' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={card}>
-              <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: '#111827' }}>Check In / Check Out</h2>
-              <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 20 }}>You must be on the restaurant WiFi to check in or out.</p>
+              <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Check In / Check Out</h2>
+              <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 20 }}>You must be on the restaurant WiFi to check in or out.</p>
 
               {/* WiFi status */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, marginBottom: 20, background: isOnRestaurantWifi ? '#edf8ee' : '#fef2f2', border: `1px solid ${isOnRestaurantWifi ? '#bbdfc0' : '#fca5a5'}` }}>
@@ -550,15 +561,15 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
               {/* Today's record */}
               {attendance && (
-                <div style={{ padding: '14px 16px', background: '#f8f9fa', borderRadius: 12, marginBottom: 20, border: '1px solid #e5e9f0' }}>
-                  <p style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Today's Record</p>
+                <div style={{ padding: '14px 16px', background: 'var(--raised)', borderRadius: 12, marginBottom: 20, border: '1px solid var(--border-soft)' }}>
+                  <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Today's Record</p>
                   <div style={{ display: 'flex', gap: 28 }}>
                     <div>
-                      <p style={{ fontSize: 11, color: '#9ca3af', marginBottom: 2 }}>Checked in</p>
+                      <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 2 }}>Checked in</p>
                       <p style={{ fontWeight: 700, fontSize: 18, color: '#44ab51' }}>{attendance.check_in || '—'}</p>
                     </div>
                     <div>
-                      <p style={{ fontSize: 11, color: '#9ca3af', marginBottom: 2 }}>Checked out</p>
+                      <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 2 }}>Checked out</p>
                       <p style={{ fontWeight: 700, fontSize: 18, color: '#44ab51' }}>{attendance.check_out || '—'}</p>
                     </div>
                   </div>
@@ -587,7 +598,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                     <div style={{ marginTop: 20 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                         <div style={{ flex: 1, height: 1, background: '#e5e9f0' }} />
-                        <span style={{ fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>WiFi not available?</span>
+                        <span style={{ fontSize: 12, color: 'var(--text4)', whiteSpace: 'nowrap' }}>WiFi not available?</span>
                         <div style={{ flex: 1, height: 1, background: '#e5e9f0' }} />
                       </div>
 
@@ -595,7 +606,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                         <div style={{ background: '#edf8ee', borderRadius: 12, padding: '16px', border: '1px solid #bbdfc0', textAlign: 'center' }}>
                           <p style={{ fontSize: 20, marginBottom: 6 }}>✅</p>
                           <p style={{ fontWeight: 700, color: '#44ab51', fontSize: 15 }}>Request sent to admin</p>
-                          <p style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>They'll manually log your check-in.</p>
+                          <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4 }}>They'll manually log your check-in.</p>
                         </div>
                       ) : (
                         <>
@@ -604,16 +615,16 @@ export default function EmployeeDashboard({ user, onLogout }) {
                             value={manualNote}
                             onChange={e => setManualNote(e.target.value)}
                             rows={2}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid #e5e9f0', fontSize: 14, fontFamily: 'inherit', resize: 'none', outline: 'none', marginBottom: 10, color: '#111827' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid var(--border-soft)', fontSize: 14, fontFamily: 'inherit', resize: 'none', outline: 'none', marginBottom: 10, color: 'var(--text)' }}
                           />
                           <button
                             onClick={handleManualCheckIn}
                             disabled={manualLoading}
-                            style={{ width: '100%', padding: '13px', fontSize: 14, fontWeight: 700, background: '#f8f9fa', color: '#374151', borderRadius: 12, border: '1.5px solid #e5e9f0' }}
+                            style={{ width: '100%', padding: '13px', fontSize: 14, fontWeight: 700, background: 'var(--raised)', color: 'var(--text2)', borderRadius: 12, border: '1.5px solid var(--border-soft)' }}
                           >
                             {manualLoading ? 'Sending…' : '📩 Request Manual Check-in'}
                           </button>
-                          <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', marginTop: 8 }}>
+                          <p style={{ fontSize: 11, color: 'var(--text4)', textAlign: 'center', marginTop: 8 }}>
                             Notifies the admin — they'll approve and log your time.
                           </p>
                         </>
@@ -642,14 +653,14 @@ export default function EmployeeDashboard({ user, onLogout }) {
                     <div style={{ marginTop: 20 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                         <div style={{ flex: 1, height: 1, background: '#e5e9f0' }} />
-                        <span style={{ fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>WiFi not available?</span>
+                        <span style={{ fontSize: 12, color: 'var(--text4)', whiteSpace: 'nowrap' }}>WiFi not available?</span>
                         <div style={{ flex: 1, height: 1, background: '#e5e9f0' }} />
                       </div>
                       {manualOutSent ? (
                         <div style={{ background: '#edf8ee', borderRadius: 12, padding: '16px', border: '1px solid #bbdfc0', textAlign: 'center' }}>
                           <p style={{ fontSize: 20, marginBottom: 6 }}>✅</p>
                           <p style={{ fontWeight: 700, color: '#44ab51', fontSize: 15 }}>Check-out request sent</p>
-                          <p style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>Admin will log your check-out time.</p>
+                          <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4 }}>Admin will log your check-out time.</p>
                         </div>
                       ) : (
                         <>
@@ -658,16 +669,16 @@ export default function EmployeeDashboard({ user, onLogout }) {
                             value={manualOutNote}
                             onChange={e => setManualOutNote(e.target.value)}
                             rows={2}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid #e5e9f0', fontSize: 14, fontFamily: 'inherit', resize: 'none', outline: 'none', marginBottom: 10, color: '#111827' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid var(--border-soft)', fontSize: 14, fontFamily: 'inherit', resize: 'none', outline: 'none', marginBottom: 10, color: 'var(--text)' }}
                           />
                           <button
                             onClick={handleManualCheckOut}
                             disabled={manualOutLoading}
-                            style={{ width: '100%', padding: '13px', fontSize: 14, fontWeight: 700, background: '#f8f9fa', color: '#374151', borderRadius: 12, border: '1.5px solid #e5e9f0' }}
+                            style={{ width: '100%', padding: '13px', fontSize: 14, fontWeight: 700, background: 'var(--raised)', color: 'var(--text2)', borderRadius: 12, border: '1.5px solid var(--border-soft)' }}
                           >
                             {manualOutLoading ? 'Sending…' : '📩 Request Manual Check-out'}
                           </button>
-                          <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', marginTop: 8 }}>Notifies the admin — they'll log your end time.</p>
+                          <p style={{ fontSize: 11, color: 'var(--text4)', textAlign: 'center', marginTop: 8 }}>Notifies the admin — they'll log your end time.</p>
                         </>
                       )}
                     </div>
@@ -686,8 +697,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
         {/* ── Availability Tab ── */}
         {tab === 'availability' && (
           <div style={card}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: '#111827' }}>My Availability</h2>
-            <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 18 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>My Availability</h2>
+            <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 18 }}>
               Tap the days you can work and set your preferred hours.
               {(user.min_days || user.max_days) && (
                 <span style={{ color: '#44ab51', fontWeight: 600 }}> ({user.min_days || 1}–{user.max_days || 7} days/week)</span>
@@ -721,7 +732,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                       { label: 'To', field: 'end', hours: day === 'Friday' || day === 'Saturday' ? HOURS_LATE : HOURS },
                     ].map(({ label, field, hours }) => (
                       <div key={field} style={{ flex: 1 }}>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>{label}</label>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>{label}</label>
                         <select value={preferences[day][field]} onChange={e => updateTime(day, field, e.target.value)} style={selectStyle}>
                           {hours.map(h => <option key={h}>{h}</option>)}
                         </select>
@@ -756,8 +767,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
         {tab === 'handover' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={card}>
-              <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: '#111827' }}>Handover List</h2>
-              <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 16 }}>Add tasks for the next shift. Check off completed items.</p>
+              <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Handover List</h2>
+              <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 16 }}>Add tasks for the next shift. Check off completed items.</p>
 
               <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
                 <input
@@ -776,11 +787,11 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 <div style={{ marginBottom: 20 }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', marginBottom: 10, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Pending</p>
                   {handoverTasks.filter(t => !t.completed).map(task => (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid var(--border-table)' }}>
                       <div onClick={() => toggleTask(task)} style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, border: '2px solid #d1d5db', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }} />
                       <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{task.task}</p>
-                        <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                        <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{task.task}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2 }}>
                           Added by {task.added_by_name} · {new Date(task.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
@@ -796,13 +807,13 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 <div>
                   <p style={{ fontSize: 11, fontWeight: 700, color: '#44ab51', marginBottom: 10, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Completed</p>
                   {handoverTasks.filter(t => t.completed).map(task => (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid #f3f4f6', opacity: 0.65 }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid var(--border-table)', opacity: 0.65 }}>
                       <div onClick={() => toggleTask(task)} style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, background: '#44ab51', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <span style={{ color: 'white', fontSize: 13, fontWeight: 700 }}>✓</span>
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: 14, fontWeight: 500, textDecoration: 'line-through', color: '#9ca3af' }}>{task.task}</p>
-                        <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Added by {task.added_by_name} · Completed by {task.completed_by_name}</p>
+                        <p style={{ fontSize: 14, fontWeight: 500, textDecoration: 'line-through', color: 'var(--text4)' }}>{task.task}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2 }}>Added by {task.added_by_name} · Completed by {task.completed_by_name}</p>
                       </div>
                       {task.added_by === user.id && (
                         <button onClick={() => deleteTask(task.id)} style={{ background: '#fef2f2', color: '#dc2626', padding: '4px 10px', fontSize: 12, borderRadius: 7, fontWeight: 600 }}>🗑</button>
@@ -813,7 +824,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
               )}
 
               {handoverTasks.length === 0 && (
-                <p style={{ color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>No tasks yet. Add something for the next shift!</p>
+                <p style={{ color: 'var(--text4)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>No tasks yet. Add something for the next shift!</p>
               )}
             </div>
           </div>
