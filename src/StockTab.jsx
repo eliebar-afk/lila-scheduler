@@ -55,6 +55,7 @@ export function StockAdmin() {
   const [editItem, setEditItem] = useState(null)
   const [showLog, setShowLog] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [expandedCat, setExpandedCat] = useState(null)
 
   useEffect(() => {
     fetchAll()
@@ -67,6 +68,10 @@ export function StockAdmin() {
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [])
+
+  useEffect(() => {
+    if (editCat) setExpandedCat(editCat.id)
+  }, [editCat])
 
   const fetchAll = async () => {
     const [{ data: cats }, { data: its }] = await Promise.all([
@@ -107,6 +112,7 @@ export function StockAdmin() {
 
   const deleteCategory = async (id) => {
     await supabase.from('stock_categories').delete().eq('id', id)
+    if (expandedCat === id) setExpandedCat(null)
   }
 
   const addItem = async (catId) => {
@@ -136,6 +142,10 @@ export function StockAdmin() {
   }
 
   if (loading) return <div style={{ padding: 20, color: '#9ca3af', fontSize: 14 }}>Loading stock…</div>
+
+  const expandedCategory = categories.find(c => c.id === expandedCat)
+  const expandedItems = expandedCategory ? items.filter(i => i.category_id === expandedCategory.id) : []
+  const expandedNewItem = expandedCategory ? (newItem[expandedCategory.id] || { name: '', unit: '', quantity: '' }) : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -206,7 +216,6 @@ export function StockAdmin() {
                   padding: '10px 0',
                   borderBottom: '1px solid #f3f4f6',
                 }}>
-                  {/* Change badge */}
                   <div style={{
                     flexShrink: 0,
                     minWidth: 44,
@@ -220,8 +229,6 @@ export function StockAdmin() {
                   }}>
                     {isAdd ? '+' : ''}{log.change}
                   </div>
-
-                  {/* Details */}
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
                       {log.item_name}
@@ -234,8 +241,6 @@ export function StockAdmin() {
                       {log.unit ? ` ${log.unit}` : ''}
                     </p>
                   </div>
-
-                  {/* Time */}
                   <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     {new Date(log.created_at).toLocaleString('en-GB', {
                       day: 'numeric', month: 'short',
@@ -249,119 +254,171 @@ export function StockAdmin() {
         </div>
       )}
 
-      {categories.length === 0 && (
+      {/* Category grid */}
+      {categories.length === 0 ? (
         <p style={{ color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>
           No categories yet. Add one above!
         </p>
-      )}
-
-      {categories.map(cat => {
-        const catItems = items.filter(i => i.category_id === cat.id)
-        const ni = newItem[cat.id] || { name: '', unit: '', quantity: '' }
-        return (
-          <div key={cat.id} style={card}>
-            {editCat?.id === cat.id ? (
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                <input
-                  value={editCat.name}
-                  onChange={e => setEditCat({ ...editCat, name: e.target.value })}
-                  onKeyDown={e => e.key === 'Enter' && saveCategory()}
-                  style={{ ...inputStyle, flex: 1, width: 'auto', fontWeight: 700, fontSize: 15 }}
-                  autoFocus
-                />
-                <button onClick={() => setEditCat(null)} style={btnSecondary}>Cancel</button>
-                <button onClick={saveCategory} style={{ ...btnPrimary, boxShadow: 'none' }}>Save</button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ fontSize: 15, fontWeight: 700, color: '#44ab51' }}>{cat.name}</h3>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => setEditCat(cat)} style={{ ...btnSecondary, padding: '5px 10px', fontSize: 12 }}>✏️ Rename</button>
-                  <button onClick={() => deleteCategory(cat.id)} style={{ ...btnDanger, padding: '5px 10px', fontSize: 12 }}>🗑</button>
-                </div>
-              </div>
-            )}
-
-            {catItems.length === 0 && (
-              <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 12 }}>No items yet.</p>
-            )}
-
-            {catItems.map(item => (
-              editItem?.id === item.id ? (
-                <div key={item.id} style={{ background: '#edf8ee', borderRadius: 10, padding: 14, marginBottom: 8, border: '1px solid #bbdfc0' }}>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                    <div style={{ flex: 2, minWidth: 100 }}>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Name</label>
-                      <input value={editItem.name} onChange={e => setEditItem({ ...editItem, name: e.target.value })} style={inputStyle} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 80 }}>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Unit</label>
-                      <input placeholder="kg, L, pcs…" value={editItem.unit} onChange={e => setEditItem({ ...editItem, unit: e.target.value })} style={inputStyle} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 70 }}>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Quantity</label>
-                      <input type="number" min={0} value={editItem.quantity} onChange={e => setEditItem({ ...editItem, quantity: e.target.value })} style={inputStyle} />
-                    </div>
+      ) : (
+        <div style={card}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            Categories
+          </p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+            gap: 10,
+          }}>
+            {categories.map(cat => {
+              const catItems = items.filter(i => i.category_id === cat.id)
+              const hasEmpty = catItems.some(i => i.quantity === 0)
+              const isSelected = expandedCat === cat.id
+              return (
+                <div
+                  key={cat.id}
+                  onClick={() => setExpandedCat(isSelected ? null : cat.id)}
+                  style={{
+                    position: 'relative',
+                    background: isSelected ? '#edf8ee' : '#f8f9fa',
+                    border: `2px solid ${isSelected ? '#44ab51' : '#e5e9f0'}`,
+                    borderRadius: 12,
+                    padding: '14px 8px 12px',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'border-color 0.15s, background 0.15s',
+                  }}
+                >
+                  {hasEmpty && (
+                    <div style={{
+                      position: 'absolute', top: 7, right: 7,
+                      width: 7, height: 7, borderRadius: '50%',
+                      background: '#dc2626',
+                    }} />
+                  )}
+                  <div style={{ fontSize: 20, marginBottom: 6 }}>📦</div>
+                  <div style={{
+                    fontWeight: 700,
+                    fontSize: 12,
+                    color: isSelected ? '#44ab51' : '#374151',
+                    lineHeight: 1.3,
+                    wordBreak: 'break-word',
+                  }}>
+                    {cat.name}
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => setEditItem(null)} style={btnSecondary}>Cancel</button>
-                    <button onClick={saveItem} style={{ ...btnPrimary, boxShadow: 'none' }}>Save</button>
-                  </div>
-                </div>
-              ) : (
-                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: '1px solid #f3f4f6' }}>
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{item.name}</span>
-                    {item.unit && <span style={{ color: '#9ca3af', fontSize: 12, marginLeft: 8 }}>{item.unit}</span>}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontWeight: 700, fontSize: 17, color: item.quantity === 0 ? '#dc2626' : '#44ab51', minWidth: 36, textAlign: 'right' }}>
-                      {item.quantity}
-                    </span>
-                    <button onClick={() => setEditItem({ ...item })} style={{ ...btnSecondary, padding: '4px 10px', fontSize: 12 }}>✏️</button>
-                    <button onClick={() => deleteItem(item.id)} style={{ ...btnDanger, padding: '4px 10px', fontSize: 12 }}>🗑</button>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                    {catItems.length} item{catItems.length !== 1 ? 's' : ''}
                   </div>
                 </div>
               )
-            ))}
+            })}
+          </div>
+        </div>
+      )}
 
-            {/* Add item form */}
-            <div style={{ background: '#f8f9fa', borderRadius: 10, padding: 14, marginTop: 14, border: '1px solid #e5e9f0' }}>
-              <p style={{ fontWeight: 600, fontSize: 12, color: '#6b7280', marginBottom: 10 }}>Add item to {cat.name}</p>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                <div style={{ flex: 2, minWidth: 100 }}>
-                  <input
-                    placeholder="Item name"
-                    value={ni.name}
-                    onChange={e => setNewItem(prev => ({ ...prev, [cat.id]: { ...ni, name: e.target.value } }))}
-                    onKeyDown={e => e.key === 'Enter' && addItem(cat.id)}
-                    style={inputStyle}
-                  />
+      {/* Expanded category detail */}
+      {expandedCategory && (
+        <div style={card}>
+          {editCat?.id === expandedCategory.id ? (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <input
+                value={editCat.name}
+                onChange={e => setEditCat({ ...editCat, name: e.target.value })}
+                onKeyDown={e => e.key === 'Enter' && saveCategory()}
+                style={{ ...inputStyle, flex: 1, width: 'auto', fontWeight: 700, fontSize: 15 }}
+                autoFocus
+              />
+              <button onClick={() => setEditCat(null)} style={btnSecondary}>Cancel</button>
+              <button onClick={saveCategory} style={{ ...btnPrimary, boxShadow: 'none' }}>Save</button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#44ab51' }}>{expandedCategory.name}</h3>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setEditCat(expandedCategory)} style={{ ...btnSecondary, padding: '5px 10px', fontSize: 12 }}>✏️ Rename</button>
+                <button onClick={() => deleteCategory(expandedCategory.id)} style={{ ...btnDanger, padding: '5px 10px', fontSize: 12 }}>🗑</button>
+              </div>
+            </div>
+          )}
+
+          {expandedItems.length === 0 && (
+            <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 12 }}>No items yet.</p>
+          )}
+
+          {expandedItems.map(item => (
+            editItem?.id === item.id ? (
+              <div key={item.id} style={{ background: '#edf8ee', borderRadius: 10, padding: 14, marginBottom: 8, border: '1px solid #bbdfc0' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <div style={{ flex: 2, minWidth: 100 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Name</label>
+                    <input value={editItem.name} onChange={e => setEditItem({ ...editItem, name: e.target.value })} style={inputStyle} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 80 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Unit</label>
+                    <input placeholder="kg, L, pcs…" value={editItem.unit} onChange={e => setEditItem({ ...editItem, unit: e.target.value })} style={inputStyle} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 70 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 3 }}>Quantity</label>
+                    <input type="number" min={0} value={editItem.quantity} onChange={e => setEditItem({ ...editItem, quantity: e.target.value })} style={inputStyle} />
+                  </div>
                 </div>
-                <div style={{ flex: 1, minWidth: 80 }}>
-                  <input
-                    placeholder="Unit (kg, L…)"
-                    value={ni.unit}
-                    onChange={e => setNewItem(prev => ({ ...prev, [cat.id]: { ...ni, unit: e.target.value } }))}
-                    style={inputStyle}
-                  />
-                </div>
-                <div style={{ flex: 1, minWidth: 70 }}>
-                  <input
-                    type="number"
-                    min={0}
-                    placeholder="Qty"
-                    value={ni.quantity}
-                    onChange={e => setNewItem(prev => ({ ...prev, [cat.id]: { ...ni, quantity: e.target.value } }))}
-                    style={inputStyle}
-                  />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setEditItem(null)} style={btnSecondary}>Cancel</button>
+                  <button onClick={saveItem} style={{ ...btnPrimary, boxShadow: 'none' }}>Save</button>
                 </div>
               </div>
-              <button onClick={() => addItem(cat.id)} style={{ ...btnPrimary, boxShadow: 'none' }}>+ Add Item</button>
+            ) : (
+              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{item.name}</span>
+                  {item.unit && <span style={{ color: '#9ca3af', fontSize: 12, marginLeft: 8 }}>{item.unit}</span>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontWeight: 700, fontSize: 17, color: item.quantity === 0 ? '#dc2626' : '#44ab51', minWidth: 36, textAlign: 'right' }}>
+                    {item.quantity}
+                  </span>
+                  <button onClick={() => setEditItem({ ...item })} style={{ ...btnSecondary, padding: '4px 10px', fontSize: 12 }}>✏️</button>
+                  <button onClick={() => deleteItem(item.id)} style={{ ...btnDanger, padding: '4px 10px', fontSize: 12 }}>🗑</button>
+                </div>
+              </div>
+            )
+          ))}
+
+          {/* Add item form */}
+          <div style={{ background: '#f8f9fa', borderRadius: 10, padding: 14, marginTop: 14, border: '1px solid #e5e9f0' }}>
+            <p style={{ fontWeight: 600, fontSize: 12, color: '#6b7280', marginBottom: 10 }}>Add item to {expandedCategory.name}</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+              <div style={{ flex: 2, minWidth: 100 }}>
+                <input
+                  placeholder="Item name"
+                  value={expandedNewItem.name}
+                  onChange={e => setNewItem(prev => ({ ...prev, [expandedCategory.id]: { ...expandedNewItem, name: e.target.value } }))}
+                  onKeyDown={e => e.key === 'Enter' && addItem(expandedCategory.id)}
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 80 }}>
+                <input
+                  placeholder="Unit (kg, L…)"
+                  value={expandedNewItem.unit}
+                  onChange={e => setNewItem(prev => ({ ...prev, [expandedCategory.id]: { ...expandedNewItem, unit: e.target.value } }))}
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 70 }}>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="Qty"
+                  value={expandedNewItem.quantity}
+                  onChange={e => setNewItem(prev => ({ ...prev, [expandedCategory.id]: { ...expandedNewItem, quantity: e.target.value } }))}
+                  style={inputStyle}
+                />
+              </div>
             </div>
+            <button onClick={() => addItem(expandedCategory.id)} style={{ ...btnPrimary, boxShadow: 'none' }}>+ Add Item</button>
           </div>
-        )
-      })}
+        </div>
+      )}
     </div>
   )
 }
@@ -372,6 +429,7 @@ export function StockEmployee({ user }) {
   const [items, setItems] = useState([])
   const [customAmt, setCustomAmt] = useState({})
   const [loading, setLoading] = useState(true)
+  const [expandedCat, setExpandedCat] = useState(null)
 
   useEffect(() => {
     fetchAll()
@@ -439,78 +497,131 @@ export function StockEmployee({ user }) {
     </div>
   )
 
+  const expandedCategory = categories.find(c => c.id === expandedCat)
+  const expandedItems = expandedCategory ? items.filter(i => i.category_id === expandedCategory.id) : []
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {categories.map(cat => {
-        const catItems = items.filter(i => i.category_id === cat.id)
-        if (catItems.length === 0) return null
-        return (
-          <div key={cat.id} style={card}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: '#44ab51', marginBottom: 14 }}>{cat.name}</h3>
-            {catItems.map((item, idx) => (
-              <div key={item.id} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '12px 0',
-                borderBottom: idx < catItems.length - 1 ? '1px solid #f3f4f6' : 'none',
-                flexWrap: 'wrap',
-              }}>
-                {/* Name + unit */}
-                <div style={{ flex: 1, minWidth: 100 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{item.name}</span>
-                  {item.unit && <span style={{ color: '#9ca3af', fontSize: 12, marginLeft: 6 }}>{item.unit}</span>}
+      {/* Category grid */}
+      <div style={card}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          Categories
+        </p>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+          gap: 10,
+        }}>
+          {categories.map(cat => {
+            const catItems = items.filter(i => i.category_id === cat.id)
+            if (catItems.length === 0) return null
+            const hasEmpty = catItems.some(i => i.quantity === 0)
+            const isSelected = expandedCat === cat.id
+            return (
+              <div
+                key={cat.id}
+                onClick={() => setExpandedCat(isSelected ? null : cat.id)}
+                style={{
+                  position: 'relative',
+                  background: isSelected ? '#edf8ee' : '#f8f9fa',
+                  border: `2px solid ${isSelected ? '#44ab51' : '#e5e9f0'}`,
+                  borderRadius: 12,
+                  padding: '14px 8px 12px',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  transition: 'border-color 0.15s, background 0.15s',
+                }}
+              >
+                {hasEmpty && (
+                  <div style={{
+                    position: 'absolute', top: 7, right: 7,
+                    width: 7, height: 7, borderRadius: '50%',
+                    background: '#dc2626',
+                  }} />
+                )}
+                <div style={{ fontSize: 20, marginBottom: 6 }}>📦</div>
+                <div style={{
+                  fontWeight: 700,
+                  fontSize: 12,
+                  color: isSelected ? '#44ab51' : '#374151',
+                  lineHeight: 1.3,
+                  wordBreak: 'break-word',
+                }}>
+                  {cat.name}
                 </div>
-
-                {/* −1 / qty / +1 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button
-                    onClick={() => adjust(item, -1)}
-                    disabled={item.quantity === 0}
-                    style={{
-                      width: 34, height: 34, borderRadius: 9,
-                      background: item.quantity === 0 ? '#f3f4f6' : '#fef2f2',
-                      color: item.quantity === 0 ? '#d1d5db' : '#dc2626',
-                      fontWeight: 700, fontSize: 20, lineHeight: 1,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >−</button>
-                  <span style={{
-                    fontWeight: 700, fontSize: 18,
-                    color: item.quantity === 0 ? '#dc2626' : '#111827',
-                    minWidth: 40, textAlign: 'center',
-                  }}>
-                    {item.quantity}
-                  </span>
-                  <button
-                    onClick={() => adjust(item, 1)}
-                    style={{
-                      width: 34, height: 34, borderRadius: 9,
-                      background: '#edf8ee', color: '#44ab51',
-                      fontWeight: 700, fontSize: 20, lineHeight: 1,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >+</button>
-                </div>
-
-                {/* Bulk adjust */}
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    placeholder="±qty"
-                    value={customAmt[item.id] || ''}
-                    onChange={e => setCustomAmt(prev => ({ ...prev, [item.id]: e.target.value }))}
-                    onKeyDown={e => e.key === 'Enter' && applyCustom(item)}
-                    style={{ width: 60, padding: '6px 8px', borderRadius: 8, border: '1.5px solid #e5e9f0', fontSize: 13, textAlign: 'center', outline: 'none', fontFamily: 'inherit' }}
-                  />
-                  <button
-                    onClick={() => applyCustom(item)}
-                    style={{ padding: '6px 12px', background: '#f1f5f9', color: '#475569', borderRadius: 8, fontSize: 12, fontWeight: 600 }}
-                  >Apply</button>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                  {catItems.length} item{catItems.length !== 1 ? 's' : ''}
                 </div>
               </div>
-            ))}
-          </div>
-        )
-      })}
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Expanded category items */}
+      {expandedCategory && expandedItems.length > 0 && (
+        <div style={card}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#44ab51', marginBottom: 14 }}>{expandedCategory.name}</h3>
+          {expandedItems.map((item, idx) => (
+            <div key={item.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '12px 0',
+              borderBottom: idx < expandedItems.length - 1 ? '1px solid #f3f4f6' : 'none',
+              flexWrap: 'wrap',
+            }}>
+              <div style={{ flex: 1, minWidth: 100 }}>
+                <span style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{item.name}</span>
+                {item.unit && <span style={{ color: '#9ca3af', fontSize: 12, marginLeft: 6 }}>{item.unit}</span>}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button
+                  onClick={() => adjust(item, -1)}
+                  disabled={item.quantity === 0}
+                  style={{
+                    width: 34, height: 34, borderRadius: 9,
+                    background: item.quantity === 0 ? '#f3f4f6' : '#fef2f2',
+                    color: item.quantity === 0 ? '#d1d5db' : '#dc2626',
+                    fontWeight: 700, fontSize: 20, lineHeight: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >−</button>
+                <span style={{
+                  fontWeight: 700, fontSize: 18,
+                  color: item.quantity === 0 ? '#dc2626' : '#111827',
+                  minWidth: 40, textAlign: 'center',
+                }}>
+                  {item.quantity}
+                </span>
+                <button
+                  onClick={() => adjust(item, 1)}
+                  style={{
+                    width: 34, height: 34, borderRadius: 9,
+                    background: '#edf8ee', color: '#44ab51',
+                    fontWeight: 700, fontSize: 20, lineHeight: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >+</button>
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  type="number"
+                  placeholder="±qty"
+                  value={customAmt[item.id] || ''}
+                  onChange={e => setCustomAmt(prev => ({ ...prev, [item.id]: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && applyCustom(item)}
+                  style={{ width: 60, padding: '6px 8px', borderRadius: 8, border: '1.5px solid #e5e9f0', fontSize: 13, textAlign: 'center', outline: 'none', fontFamily: 'inherit' }}
+                />
+                <button
+                  onClick={() => applyCustom(item)}
+                  style={{ padding: '6px 12px', background: '#f1f5f9', color: '#475569', borderRadius: 8, fontSize: 12, fontWeight: 600 }}
+                >Apply</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
