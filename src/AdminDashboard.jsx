@@ -104,6 +104,16 @@ export default function AdminDashboard({ user, onLogout }) {
     return d.toISOString().split('T')[0]
   }
 
+  const getNextWeekStart = () => {
+    const d = new Date()
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1) + 7
+    d.setDate(diff)
+    return d.toISOString().split('T')[0]
+  }
+
+  const getSchedulingWeek = () => viewingWeek || getCurrentWeekStart()
+
   const getWeekNumber = (dateStr) => {
     const d = dateStr ? new Date(dateStr) : new Date()
     const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
@@ -183,7 +193,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
   const saveShift = async () => {
     if (!editShift) return
-    const weekStart = getCurrentWeekStart()
+    const weekStart = getSchedulingWeek()
     if (editShift.id) {
       await supabase.from('shifts').update({
         start_time: editShift.start_time,
@@ -291,7 +301,7 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const generateSchedule = async () => {
-    const weekStart = getCurrentWeekStart()
+    const weekStart = getSchedulingWeek()
     await supabase.from('shifts').delete().eq('week_start', weekStart).eq('published', false)
     const newShifts = []
     const warnings = []
@@ -467,7 +477,10 @@ export default function AdminDashboard({ user, onLogout }) {
                   style={selectStyle}
                 >
                   <option value="">This Week</option>
-                  {weekOptions.map(w => (
+                  <option value={getNextWeekStart()}>
+                    Next Week — {new Date(getNextWeekStart()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </option>
+                  {weekOptions.filter(w => w !== getCurrentWeekStart() && w !== getNextWeekStart()).map(w => (
                     <option key={w} value={w}>
                       Week {getWeekNumber(w)} — {new Date(w).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </option>
