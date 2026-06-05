@@ -448,7 +448,7 @@ export function StockEmployee({ user }) {
     fetchLogs()
     const channel = supabase
       .channel('stock-employee')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_items' }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_items' }, () => { fetchAll(); fetchLogs() })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_categories' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_logs' }, fetchLogs)
       .subscribe()
