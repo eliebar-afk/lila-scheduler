@@ -496,6 +496,7 @@ export function StockEmployee({ user }) {
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: newQty } : i))
     await supabase.from('stock_items').update({ quantity: newQty }).eq('id', item.id)
     await writeLog(item, actualDelta, item.quantity, newQty)
+    fetchLogs()
   }
 
   const applyCustom = async (item) => {
@@ -507,6 +508,7 @@ export function StockEmployee({ user }) {
     setCustomAmt(prev => ({ ...prev, [item.id]: '' }))
     await supabase.from('stock_items').update({ quantity: newQty }).eq('id', item.id)
     await writeLog(item, actualDelta, item.quantity, newQty)
+    fetchLogs()
   }
 
   if (loading) return (
