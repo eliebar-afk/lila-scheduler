@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 
 const card = {
@@ -440,6 +440,8 @@ export function StockEmployee({ user }) {
   const [customAmt, setCustomAmt] = useState({})
   const [loading, setLoading] = useState(true)
   const [expandedCat, setExpandedCat] = useState(null)
+  // { [itemId]: { logId, totalChange, quantityBefore, timer } }
+  const pendingLogs = useRef({})
 
   useEffect(() => {
     fetchAll()
@@ -448,9 +450,12 @@ export function StockEmployee({ user }) {
       .channel('stock-employee')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_items' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_categories' }, fetchAll)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stock_logs' }, fetchLogs)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_logs' }, fetchLogs)
       .subscribe()
-    return () => supabase.removeChannel(channel)
+    return () => {
+      supabase.removeChannel(channel)
+      Object.values(pendingLogs.current).forEach(e => clearTimeout(e.timer))
+    }
   }, [])
 
   const fetchAll = async () => {
@@ -473,20 +478,38 @@ export function StockEmployee({ user }) {
     setLogs(data || [])
   }
 
-  const writeLog = async (item, change, quantityBefore, quantityAfter) => {
-    const cat = categories.find(c => c.id === item.category_id)
-    const { error } = await supabase.from('stock_logs').insert({
-      item_id: item.id,
-      item_name: item.name,
-      unit: item.unit || '',
-      category_name: cat?.name || '',
-      employee_id: user.id,
-      employee_name: user.name,
-      change,
-      quantity_before: quantityBefore,
-      quantity_after: quantityAfter,
-    })
-    if (error) console.error('stock_logs insert error:', error)
+  const scheduleLog = async (item, delta, quantityBefore) => {
+    const existing = pendingLogs.current[item.id]
+    if (existing) {
+      clearTimeout(existing.timer)
+      existing.totalChange += delta
+      await supabase.from('stock_logs').update({
+        change: existing.totalChange,
+        quantity_after: existing.quantityBefore + existing.totalChange,
+      }).eq('id', existing.logId)
+      existing.timer = setTimeout(() => { delete pendingLogs.current[item.id] }, 60_000)
+    } else {
+      const cat = categories.find(c => c.id === item.category_id)
+      const { data, error } = await supabase.from('stock_logs').insert({
+        item_id: item.id,
+        item_name: item.name,
+        unit: item.unit || '',
+        category_name: cat?.name || '',
+        employee_id: user.id,
+        employee_name: user.name,
+        change: delta,
+        quantity_before: quantityBefore,
+        quantity_after: quantityBefore + delta,
+      }).select().single()
+      if (error) { console.error('stock_logs insert error:', error); return }
+      pendingLogs.current[item.id] = {
+        logId: data.id,
+        totalChange: delta,
+        quantityBefore,
+        timer: setTimeout(() => { delete pendingLogs.current[item.id] }, 60_000),
+      }
+    }
+    fetchLogs()
   }
 
   const adjust = async (item, delta) => {
@@ -495,8 +518,7 @@ export function StockEmployee({ user }) {
     if (actualDelta === 0) return
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: newQty } : i))
     await supabase.from('stock_items').update({ quantity: newQty }).eq('id', item.id)
-    await writeLog(item, actualDelta, item.quantity, newQty)
-    fetchLogs()
+    scheduleLog(item, actualDelta, item.quantity)
   }
 
   const applyCustom = async (item) => {
@@ -507,8 +529,7 @@ export function StockEmployee({ user }) {
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: newQty } : i))
     setCustomAmt(prev => ({ ...prev, [item.id]: '' }))
     await supabase.from('stock_items').update({ quantity: newQty }).eq('id', item.id)
-    await writeLog(item, actualDelta, item.quantity, newQty)
-    fetchLogs()
+    scheduleLog(item, actualDelta, item.quantity)
   }
 
   if (loading) return (
