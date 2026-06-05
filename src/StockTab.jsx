@@ -424,20 +424,31 @@ export function StockAdmin() {
   )
 }
 
+function timeAgo(dateStr) {
+  const mins = Math.floor((Date.now() - new Date(dateStr)) / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  return `${hrs}h ago`
+}
+
 // ── Employee Stock Tab ───────────────────────────────────────
 export function StockEmployee({ user }) {
   const [categories, setCategories] = useState([])
   const [items, setItems] = useState([])
+  const [logs, setLogs] = useState([])
   const [customAmt, setCustomAmt] = useState({})
   const [loading, setLoading] = useState(true)
   const [expandedCat, setExpandedCat] = useState(null)
 
   useEffect(() => {
     fetchAll()
+    fetchLogs()
     const channel = supabase
       .channel('stock-employee')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_items' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_categories' }, fetchAll)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stock_logs' }, fetchLogs)
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [])
@@ -450,6 +461,16 @@ export function StockEmployee({ user }) {
     setCategories(cats || [])
     setItems(its || [])
     setLoading(false)
+  }
+
+  const fetchLogs = async () => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { data } = await supabase
+      .from('stock_logs')
+      .select('*')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+    setLogs(data || [])
   }
 
   const writeLog = async (item, change, quantityBefore, quantityAfter) => {
@@ -563,16 +584,27 @@ export function StockEmployee({ user }) {
       {expandedCategory && expandedItems.length > 0 && (
         <div style={card}>
           <h3 style={{ fontSize: 14, fontWeight: 700, color: '#44ab51', marginBottom: 14 }}>{expandedCategory.name}</h3>
-          {expandedItems.map((item, idx) => (
+          {expandedItems.map((item, idx) => {
+            const recentLog = logs.find(l => l.item_id === item.id)
+            const isVeryRecent = recentLog && (Date.now() - new Date(recentLog.created_at)) < 30 * 60 * 1000
+            return (
             <div key={item.id} style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '12px 0',
               borderBottom: idx < expandedItems.length - 1 ? '1px solid var(--border-table)' : 'none',
               flexWrap: 'wrap',
+              borderLeft: isVeryRecent ? '3px solid #f59e0b' : '3px solid transparent',
+              paddingLeft: isVeryRecent ? 10 : 0,
+              transition: 'border-color 0.2s',
             }}>
               <div style={{ flex: 1, minWidth: 100 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{item.name}</span>
                 {item.unit && <span style={{ color: 'var(--text4)', fontSize: 12, marginLeft: 6 }}>{item.unit}</span>}
+                {recentLog && (
+                  <p style={{ fontSize: 11, marginTop: 3, color: isVeryRecent ? '#d97706' : 'var(--text4)', fontWeight: isVeryRecent ? 600 : 400 }}>
+                    {recentLog.employee_name} recorded {recentLog.change > 0 ? '+' : ''}{recentLog.change}{item.unit ? ` ${item.unit}` : ''} · {timeAgo(recentLog.created_at)}
+                  </p>
+                )}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -620,7 +652,8 @@ export function StockEmployee({ user }) {
                 >Apply</button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
