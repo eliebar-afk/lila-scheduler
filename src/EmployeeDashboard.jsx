@@ -49,9 +49,9 @@ const getWeekNumber = (dateStr) => {
 
 const card = {
   background: 'var(--card)',
-  borderRadius: 16,
+  borderRadius: 20,
   padding: 20,
-  boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.07)',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.03), 0 8px 24px rgba(0,0,0,0.06), 0 32px 64px rgba(0,0,0,0.04)',
   border: '1px solid var(--border)',
 }
 
@@ -88,10 +88,52 @@ const weekSelectStyle = {
   cursor: 'pointer',
 }
 
+function AnimatedNumber({ value }) {
+  const [display, setDisplay] = useState(0)
+  const rafRef = useRef(null)
+  useEffect(() => {
+    const duration = 700
+    const startTime = Date.now()
+    const tick = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplay(Math.round(value * eased * 10) / 10)
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+      } else {
+        setDisplay(value)
+      }
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+  }, [value])
+  return <>{display}</>
+}
+
+function Toast({ msg, type }) {
+  const bg = { error: '#dc2626', success: '#44ab51', info: '#1e293b' }[type] || '#1e293b'
+  return (
+    <div style={{
+      position: 'fixed', bottom: 90, left: '50%',
+      transform: 'translateX(-50%)',
+      background: bg, color: 'white',
+      padding: '12px 22px', borderRadius: 14,
+      fontSize: 14, fontWeight: 600,
+      zIndex: 9999, whiteSpace: 'nowrap',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+      animation: 'toastSlideUp 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+      pointerEvents: 'none',
+    }}>
+      {msg}
+    </div>
+  )
+}
+
 export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDarkMode }) {
   const [preferences, setPreferences] = useState({})
-  const [schedule, setSchedule] = useState([])         // viewed week's team schedule
-  const [myWeekShifts, setMyWeekShifts] = useState([]) // always current week, for hours summary
+  const [schedule, setSchedule] = useState([])
+  const [myWeekShifts, setMyWeekShifts] = useState([])
   const [weekOptions, setWeekOptions] = useState([])
   const [viewingWeek, setViewingWeek] = useState(null)
   const [employees, setEmployees] = useState([])
@@ -112,9 +154,19 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
   const [manualOutNote, setManualOutNote] = useState('')
   const [manualOutLoading, setManualOutLoading] = useState(false)
   const [manualOutSent, setManualOutSent] = useState(false)
+  const [toastMsg, setToastMsg] = useState(null)
+  const [pullY, setPullY] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
 
-  // Ref so real-time callbacks always see the current viewingWeek without stale closure
   const viewingWeekRef = useRef(null)
+  const toastTimer = useRef(null)
+  const touchStartY = useRef(0)
+
+  const showToast = (msg, type = 'info') => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToastMsg({ msg, type })
+    toastTimer.current = setTimeout(() => setToastMsg(null), 3000)
+  }
 
   useEffect(() => {
     fetchData()
@@ -123,7 +175,6 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
     fetchWeekOptions()
   }, [])
 
-  // Real-time subscriptions
   useEffect(() => {
     const channel = supabase
       .channel(`employee-${user.id}`)
@@ -233,7 +284,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
       const maxDays = user.max_days || 7
       const currentCount = Object.values(prev).filter(Boolean).length
       if (currentCount >= maxDays) {
-        alert(`You can only select a maximum of ${maxDays} days per week.`)
+        showToast(`Max ${maxDays} days per week`, 'error')
         return prev
       }
       return { ...prev, [day]: { available: true, start: '11:00', end: '17:00' } }
@@ -253,6 +304,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
       }))
     if (rows.length > 0) await supabase.from('preferences').insert(rows)
     setSaved(true)
+    showToast('Availability saved!', 'success')
     setTimeout(() => setSaved(false), 2000)
   }
 
@@ -295,29 +347,37 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
   const handleCheckIn = async () => {
     if (userIp !== RESTAURANT_IP) {
-      alert('You must be connected to the restaurant WiFi to check in.')
+      showToast('Must be on restaurant WiFi to check in', 'error')
       return
     }
+    if (navigator.vibrate) navigator.vibrate(60)
     setCheckLoading(true)
     const today = new Date().toISOString().split('T')[0]
     const now = new Date().toTimeString().slice(0, 5)
     const { data } = await supabase
       .from('attendance').insert({ employee_id: user.id, date: today, check_in: now }).select().single()
-    if (data) setAttendance(data)
+    if (data) {
+      setAttendance(data)
+      showToast(`Checked in at ${now}`, 'success')
+    }
     setCheckLoading(false)
   }
 
   const handleCheckOut = async () => {
     if (userIp !== RESTAURANT_IP) {
-      alert('You must be connected to the restaurant WiFi to check out.')
+      showToast('Must be on restaurant WiFi to check out', 'error')
       return
     }
     if (!attendance) return
+    if (navigator.vibrate) navigator.vibrate(60)
     setCheckLoading(true)
     const now = new Date().toTimeString().slice(0, 5)
     const { data } = await supabase
       .from('attendance').update({ check_out: now }).eq('id', attendance.id).select().single()
-    if (data) setAttendance(data)
+    if (data) {
+      setAttendance(data)
+      showToast(`Checked out at ${now}`, 'success')
+    }
     setCheckLoading(false)
   }
 
@@ -351,6 +411,27 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
     setManualLoading(false)
   }
 
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  const handleTouchMove = (e) => {
+    if (window.scrollY > 0) return
+    const delta = e.touches[0].clientY - touchStartY.current
+    if (delta > 0) setPullY(Math.min(delta * 0.45, 72))
+  }
+
+  const handleTouchEnd = async () => {
+    if (pullY > 52) {
+      setRefreshing(true)
+      setPullY(0)
+      await fetchData()
+      setRefreshing(false)
+    } else {
+      setPullY(0)
+    }
+  }
+
   const isOnRestaurantWifi = userIp === RESTAURANT_IP
 
   const scheduledHours = myWeekShifts.reduce((sum, s) => {
@@ -371,12 +452,21 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
     return sum + Math.round(mins / 60 * 10) / 10
   }, 0)
 
+  const todayShift = myWeekShifts.find(s => s.day === TODAY)
+
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #e5e9f0', borderTopColor: '#44ab51', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
-        <p style={{ color: 'var(--text4)', fontSize: 14 }}>Loading…</p>
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      <style>{`@keyframes shimmer { 0% { background-position: -200% 0 } 100% { background-position: 200% 0 } }`}</style>
+      <div style={{ background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)', height: 86 }} />
+      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {[88, 200, 160, 110].map((h, i) => (
+          <div key={i} style={{
+            height: h, borderRadius: 20,
+            background: 'linear-gradient(90deg, var(--raised) 25%, var(--border-soft) 50%, var(--raised) 75%)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer 1.5s infinite',
+          }} />
+        ))}
       </div>
     </div>
   )
@@ -390,81 +480,136 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(68,171,81,0.25)' }}>
-        <div>
-          <h1 style={{ color: 'white', fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px' }}>Lila</h1>
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 1 }}>Hi, {user.name}!</p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            onClick={toggleDarkMode}
-            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            style={{ width: 40, height: 22, borderRadius: 11, background: 'rgba(255,255,255,0.25)', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}
-          >
-            <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'white', transition: 'transform 0.2s', transform: darkMode ? 'translateX(18px)' : 'translateX(0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>
-              {darkMode ? '🌙' : '☀️'}
-            </div>
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, rgba(68,171,81,0.07) 0px, var(--bg) 160px)',
+        paddingBottom: 80,
+      }}>
+      <style>{`
+        @keyframes tabFadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulseGreen {
+          0%   { box-shadow: 0 0 0 0   rgba(68,171,81,0.45), 0 12px 40px rgba(68,171,81,0.5); }
+          70%  { box-shadow: 0 0 0 20px rgba(68,171,81,0),   0 12px 40px rgba(68,171,81,0.5); }
+          100% { box-shadow: 0 0 0 0   rgba(68,171,81,0),   0 12px 40px rgba(68,171,81,0.5); }
+        }
+        @keyframes pulseRed {
+          0%   { box-shadow: 0 0 0 0   rgba(220,38,38,0.45), 0 12px 40px rgba(220,38,38,0.45); }
+          70%  { box-shadow: 0 0 0 20px rgba(220,38,38,0),   0 12px 40px rgba(220,38,38,0.45); }
+          100% { box-shadow: 0 0 0 0   rgba(220,38,38,0),   0 12px 40px rgba(220,38,38,0.45); }
+        }
+        @keyframes shimmer {
+          0%   { background-position: -200% 0 }
+          100% { background-position:  200% 0 }
+        }
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @keyframes toastSlideUp {
+          from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        * { -webkit-tap-highlight-color: transparent; }
+        button { transition: transform 0.12s ease; font-family: inherit; }
+        button:active { transform: scale(0.96) !important; }
+        input, textarea, select { font-family: inherit; }
+      `}</style>
+
+      {toastMsg && <Toast msg={toastMsg.msg} type={toastMsg.type} />}
+
+      {/* Header — glassmorphism sticky */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 100,
+        background: 'rgba(48, 155, 67, 0.88)',
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        borderBottom: '1px solid rgba(255,255,255,0.12)',
+        padding: '12px 20px 14px',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ color: 'white', fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px', lineHeight: 1.1 }}>Lila</h1>
+            <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: 13, marginTop: 2, fontWeight: 500 }}>Hi, {user.name}!</p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2, fontWeight: 500 }}>
+              {todayShift ? `Today · ${todayShift.start_time} – ${todayShift.end_time}` : 'No shift today'}
+            </p>
           </div>
-          <button onClick={onLogout} style={{ background: 'rgba(255,255,255,0.18)', color: 'white', fontSize: 13, padding: '7px 16px', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
-            Logout
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              onClick={toggleDarkMode}
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              style={{ width: 40, height: 22, borderRadius: 11, background: 'rgba(255,255,255,0.25)', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+            >
+              <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'white', transition: 'transform 0.2s', transform: darkMode ? 'translateX(18px)' : 'translateX(0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>
+                {darkMode ? '🌙' : '☀️'}
+              </div>
+            </div>
+            <button onClick={onLogout} style={{ background: 'rgba(255,255,255,0.18)', color: 'white', fontSize: 13, padding: '7px 16px', borderRadius: 8, fontWeight: 600 }}>
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ background: 'var(--card)', borderBottom: '1px solid var(--border-soft)', padding: '6px 10px', display: 'flex', gap: 4 }}>
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            flex: 1, padding: '8px 4px',
-            background: tab === t.id ? '#44ab51' : 'transparent',
-            borderRadius: 10,
-            color: tab === t.id ? 'white' : '#9ca3af',
-            fontWeight: tab === t.id ? 700 : 500,
-            fontSize: 10,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            transition: 'all 0.2s',
-          }}>
-            <span style={{ fontSize: 18 }}>{t.icon}</span>
-            <span>{t.label}</span>
-          </button>
-        ))}
+      {/* Pull-to-refresh indicator */}
+      <div style={{
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        height: refreshing ? 44 : pullY * 0.6,
+        overflow: 'hidden',
+        transition: pullY === 0 && !refreshing ? 'height 0.25s ease' : 'none',
+      }}>
+        {(pullY > 8 || refreshing) && (
+          <div style={{
+            width: 26, height: 26, borderRadius: '50%',
+            border: '2.5px solid var(--border-soft)', borderTopColor: '#44ab51',
+            animation: refreshing ? 'spin 0.8s linear infinite' : 'none',
+            transform: !refreshing ? `rotate(${Math.min(pullY * 3.5, 360)}deg)` : undefined,
+            transition: 'opacity 0.15s',
+          }} />
+        )}
       </div>
 
-      <div style={{ padding: 16, maxWidth: 820, margin: '0 auto' }}>
+      {/* Tab content — fades in on each tab switch */}
+      <div key={tab} style={{ padding: 16, maxWidth: 820, margin: '0 auto', animation: 'tabFadeIn 0.22s ease-out' }}>
 
         {/* ── Schedule Tab ── */}
         {tab === 'schedule' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-            {/* New schedule alert */}
             {newScheduleAlert && (
-              <div style={{ background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)', borderRadius: 14, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 16px rgba(68,171,81,0.3)' }}>
+              <div style={{ background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)', borderRadius: 18, padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 6px 24px rgba(68,171,81,0.35)' }}>
                 <div>
-                  <p style={{ color: 'white', fontWeight: 700, fontSize: 15 }}>🎉 New schedule published!</p>
-                  <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 2 }}>Your shifts for this week have been updated.</p>
+                  <p style={{ color: 'white', fontWeight: 800, fontSize: 16, letterSpacing: '-0.2px' }}>🎉 New schedule published!</p>
+                  <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 3, fontWeight: 500 }}>Your shifts for this week have been updated.</p>
                 </div>
                 <button onClick={() => { localStorage.setItem(`schedule_seen_${user.id}`, new Date().toISOString()); setNewScheduleAlert(false) }}
-                  style={{ background: 'rgba(255,255,255,0.2)', color: 'white', padding: '8px 14px', fontSize: 13, borderRadius: 8, whiteSpace: 'nowrap', marginLeft: 12 }}>
+                  style={{ background: 'rgba(255,255,255,0.22)', color: 'white', padding: '8px 14px', fontSize: 13, fontWeight: 700, borderRadius: 10, whiteSpace: 'nowrap', marginLeft: 12 }}>
                   Got it ✓
                 </button>
               </div>
             )}
 
-            {/* My hours — always current week */}
+            {/* My Hours */}
             <div style={card}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginBottom: 12 }}>
-                My Hours — Week {getWeekNumber(viewingWeek)}
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text4)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Week {getWeekNumber(viewingWeek)} Hours
               </p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1, background: 'var(--raised)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 4 }}>Scheduled</p>
-                  <p style={{ fontWeight: 700, fontSize: 22, color: 'var(--text2)' }}>{scheduledHours}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text4)' }}> hrs</span></p>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1, background: 'var(--raised)', borderRadius: 14, padding: '14px 16px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 6, fontWeight: 600 }}>Scheduled</p>
+                  <p style={{ fontWeight: 800, fontSize: 28, color: 'var(--text2)', letterSpacing: '-0.5px' }}>
+                    <AnimatedNumber value={scheduledHours} /><span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text4)' }}>h</span>
+                  </p>
                 </div>
-                <div style={{ flex: 1, background: '#edf8ee', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 4 }}>Worked</p>
-                  <p style={{ fontWeight: 700, fontSize: 22, color: '#44ab51' }}>{workedHours}<span style={{ fontSize: 13, fontWeight: 500, color: '#6dcf77' }}> hrs</span></p>
+                <div style={{ flex: 1, background: 'rgba(68,171,81,0.1)', borderRadius: 14, padding: '14px 16px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 11, color: '#44ab51', marginBottom: 6, fontWeight: 600 }}>Worked</p>
+                  <p style={{ fontWeight: 800, fontSize: 28, color: '#44ab51', letterSpacing: '-0.5px' }}>
+                    <AnimatedNumber value={workedHours} /><span style={{ fontSize: 14, fontWeight: 500, color: '#6dcf77' }}>h</span>
+                  </p>
                 </div>
               </div>
             </div>
@@ -472,8 +617,8 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
             {/* Team schedule */}
             <div style={{ ...card, overflowX: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 10, flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
-                  Team Schedule — Week {getWeekNumber(viewingWeek)}
+                <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.3px' }}>
+                  Team Schedule
                 </h2>
                 <select
                   value={viewingWeek || ''}
@@ -498,9 +643,9 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text4)', fontWeight: 600, minWidth: 80, fontSize: 12 }}>Employee</th>
+                    <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text4)', fontWeight: 700, minWidth: 80, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Employee</th>
                     {DAYS.map(d => (
-                      <th key={d} style={{ padding: '8px 4px', color: d === TODAY ? '#44ab51' : '#9ca3af', fontWeight: d === TODAY ? 800 : 600, textAlign: 'center', minWidth: 56, background: d === TODAY ? '#edf8ee' : 'transparent', borderRadius: 6, fontSize: 11 }}>
+                      <th key={d} style={{ padding: '8px 4px', color: d === TODAY ? '#44ab51' : 'var(--text4)', fontWeight: d === TODAY ? 800 : 600, textAlign: 'center', minWidth: 54, background: d === TODAY ? 'rgba(68,171,81,0.07)' : 'transparent', borderRadius: 6, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         {d.slice(0, 3)}
                       </th>
                     ))}
@@ -509,21 +654,30 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                 <tbody>
                   {employees.map(emp => (
                     <tr key={emp.id} style={{ borderTop: '1px solid var(--border-table)' }}>
-                      <td style={{ padding: '8px 10px', fontWeight: emp.id === user.id ? 700 : 500, color: emp.id === user.id ? '#44ab51' : '#374151', fontSize: 13 }}>
+                      <td style={{ padding: '8px 10px', fontWeight: emp.id === user.id ? 700 : 500, color: emp.id === user.id ? '#44ab51' : 'var(--text2)', fontSize: 13 }}>
                         {emp.name}{emp.id === user.id ? ' (me)' : ''}
                       </td>
                       {DAYS.map(day => {
                         const shift = schedule.find(s => s.employee_id === emp.id && s.day === day)
+                        const color = shift ? getShiftColor(shift.start_time) : null
                         return (
                           <td key={day} style={{ padding: '4px 3px', textAlign: 'center' }}>
                             {shift ? (
-                              <div style={{ borderRadius: 8, padding: '5px 2px', background: getShiftColor(shift.start_time), minHeight: 36, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                <span style={{ fontSize: 10, color: 'white', fontWeight: 700, lineHeight: 1.3 }}>{shift.start_time}</span>
-                                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', lineHeight: 1.3 }}>{shift.end_time}</span>
+                              <div style={{
+                                borderRadius: 8,
+                                padding: '4px 5px',
+                                background: `${color}18`,
+                                borderLeft: `3px solid ${color}`,
+                                minHeight: 36,
+                                display: 'flex', flexDirection: 'column',
+                                alignItems: 'flex-start', justifyContent: 'center',
+                              }}>
+                                <span style={{ fontSize: 10, color: 'var(--text)', fontWeight: 700, lineHeight: 1.3 }}>{shift.start_time}</span>
+                                <span style={{ fontSize: 10, color: 'var(--text3)', lineHeight: 1.3 }}>{shift.end_time}</span>
                               </div>
                             ) : (
                               <div style={{ minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <span style={{ fontSize: 12, color: '#e5e9f0' }}>—</span>
+                                <span style={{ fontSize: 12, color: 'var(--border-soft)' }}>—</span>
                               </div>
                             )}
                           </td>
@@ -539,20 +693,20 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
             {handoverTasks.filter(t => !t.completed).length > 0 && (
               <div style={card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>⏳ Pending Handover</h3>
-                  <button onClick={() => setTab('handover')} style={{ background: '#edf8ee', color: '#44ab51', padding: '4px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8 }}>See all</button>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.2px' }}>⏳ Pending Handover</h3>
+                  <button onClick={() => setTab('handover')} style={{ background: 'rgba(68,171,81,0.1)', color: '#44ab51', padding: '5px 12px', fontSize: 12, fontWeight: 700, borderRadius: 9 }}>See all</button>
                 </div>
                 {handoverTasks.filter(t => !t.completed).slice(0, 3).map(task => (
-                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border-table)' }}>
-                    <div onClick={() => toggleTask(task)} style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: '2px solid #d1d5db', cursor: 'pointer' }} />
+                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: '1px solid var(--border-table)' }}>
+                    <div onClick={() => toggleTask(task)} style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: '2px solid var(--border-soft)', cursor: 'pointer' }} />
                     <div>
-                      <p style={{ fontSize: 14, color: 'var(--text)' }}>{task.task}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 1 }}>Added by {task.added_by_name}</p>
+                      <p style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>{task.task}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 1, fontWeight: 500 }}>by {task.added_by_name}</p>
                     </div>
                   </div>
                 ))}
                 {handoverTasks.filter(t => !t.completed).length > 3 && (
-                  <p style={{ fontSize: 12, color: 'var(--text4)', marginTop: 10, textAlign: 'center' }}>+{handoverTasks.filter(t => !t.completed).length - 3} more tasks</p>
+                  <p style={{ fontSize: 12, color: 'var(--text4)', marginTop: 10, textAlign: 'center' }}>+{handoverTasks.filter(t => !t.completed).length - 3} more</p>
                 )}
               </div>
             )}
@@ -563,65 +717,72 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
         {tab === 'checkin' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={card}>
-              <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Check In / Check Out</h2>
-              <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 20 }}>You must be on the restaurant WiFi to check in or out.</p>
+              <h2 style={{ fontSize: 15, fontWeight: 800, marginBottom: 4, color: 'var(--text)', letterSpacing: '-0.3px' }}>Check In / Out</h2>
+              <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 24, fontWeight: 500 }}>Must be on the restaurant WiFi.</p>
 
               {/* WiFi status */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, marginBottom: 20, background: isOnRestaurantWifi ? '#edf8ee' : '#fef2f2', border: `1px solid ${isOnRestaurantWifi ? '#bbdfc0' : '#fca5a5'}` }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: isOnRestaurantWifi ? '#44ab51' : '#dc2626', boxShadow: `0 0 0 3px ${isOnRestaurantWifi ? 'rgba(68,171,81,0.2)' : 'rgba(220,38,38,0.2)'}` }} />
-                <p style={{ fontWeight: 600, fontSize: 14, color: isOnRestaurantWifi ? '#166534' : '#991b1b' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, marginBottom: 24, background: isOnRestaurantWifi ? 'rgba(68,171,81,0.09)' : 'rgba(220,38,38,0.06)', border: `1px solid ${isOnRestaurantWifi ? 'rgba(68,171,81,0.28)' : 'rgba(220,38,38,0.2)'}` }}>
+                <div style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, background: isOnRestaurantWifi ? '#44ab51' : '#dc2626', boxShadow: `0 0 0 3px ${isOnRestaurantWifi ? 'rgba(68,171,81,0.2)' : 'rgba(220,38,38,0.2)'}` }} />
+                <p style={{ fontWeight: 600, fontSize: 13, color: isOnRestaurantWifi ? '#166534' : '#991b1b' }}>
                   {isOnRestaurantWifi ? 'Connected to restaurant WiFi' : 'Not on restaurant WiFi'}
                 </p>
               </div>
 
               {/* Today's record */}
               {attendance && (
-                <div style={{ padding: '14px 16px', background: 'var(--raised)', borderRadius: 12, marginBottom: 20, border: '1px solid var(--border-soft)' }}>
-                  <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Today's Record</p>
+                <div style={{ padding: '14px 16px', background: 'var(--raised)', borderRadius: 14, marginBottom: 24, border: '1px solid var(--border-soft)' }}>
+                  <p style={{ fontSize: 10, color: 'var(--text4)', marginBottom: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Today's Record</p>
                   <div style={{ display: 'flex', gap: 28 }}>
                     <div>
-                      <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 2 }}>Checked in</p>
-                      <p style={{ fontWeight: 700, fontSize: 18, color: '#44ab51' }}>{attendance.check_in || '—'}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 3, fontWeight: 500 }}>Checked in</p>
+                      <p style={{ fontWeight: 800, fontSize: 20, color: '#44ab51', letterSpacing: '-0.3px' }}>{attendance.check_in || '—'}</p>
                     </div>
                     <div>
-                      <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 2 }}>Checked out</p>
-                      <p style={{ fontWeight: 700, fontSize: 18, color: '#44ab51' }}>{attendance.check_out || '—'}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 3, fontWeight: 500 }}>Checked out</p>
+                      <p style={{ fontWeight: 800, fontSize: 20, color: attendance.check_out ? '#44ab51' : 'var(--text4)', letterSpacing: '-0.3px' }}>{attendance.check_out || '—'}</p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Check In / Out button */}
+              {/* Circular check-in button */}
               {!attendance?.check_in ? (
                 <>
-                  <button
-                    onClick={handleCheckIn}
-                    disabled={checkLoading || !isOnRestaurantWifi}
-                    style={{
-                      width: '100%', padding: '18px', fontSize: 17, fontWeight: 700,
-                      background: isOnRestaurantWifi ? 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)' : '#e5e9f0',
-                      color: isOnRestaurantWifi ? 'white' : '#9ca3af',
-                      borderRadius: 14,
-                      boxShadow: isOnRestaurantWifi ? '0 6px 20px rgba(68,171,81,0.4)' : 'none',
-                    }}
-                  >
-                    {checkLoading ? 'Checking in…' : '🟢 Check In'}
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 4 }}>
+                    <button
+                      onClick={handleCheckIn}
+                      disabled={checkLoading || !isOnRestaurantWifi}
+                      style={{
+                        width: 148, height: 148, borderRadius: '50%',
+                        background: isOnRestaurantWifi
+                          ? 'linear-gradient(145deg, #52c761 0%, #37944a 100%)'
+                          : 'var(--raised)',
+                        color: isOnRestaurantWifi ? 'white' : 'var(--text4)',
+                        fontSize: 15, fontWeight: 800,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        animation: isOnRestaurantWifi && !checkLoading ? 'pulseGreen 2s infinite' : 'none',
+                        border: isOnRestaurantWifi ? 'none' : '2px solid var(--border-soft)',
+                        cursor: isOnRestaurantWifi ? 'pointer' : 'not-allowed',
+                        letterSpacing: '-0.2px',
+                      }}
+                    >
+                      <span style={{ fontSize: 32 }}>{checkLoading ? '⏳' : '🟢'}</span>
+                      <span>{checkLoading ? 'Checking…' : 'Check In'}</span>
+                    </button>
+                  </div>
 
-                  {/* Manual check-in fallback when off WiFi */}
                   {!isOnRestaurantWifi && (
-                    <div style={{ marginTop: 20 }}>
+                    <div style={{ marginTop: 24 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                        <div style={{ flex: 1, height: 1, background: '#e5e9f0' }} />
-                        <span style={{ fontSize: 12, color: 'var(--text4)', whiteSpace: 'nowrap' }}>WiFi not available?</span>
-                        <div style={{ flex: 1, height: 1, background: '#e5e9f0' }} />
+                        <div style={{ flex: 1, height: 1, background: 'var(--border-soft)' }} />
+                        <span style={{ fontSize: 12, color: 'var(--text4)', whiteSpace: 'nowrap', fontWeight: 500 }}>No WiFi?</span>
+                        <div style={{ flex: 1, height: 1, background: 'var(--border-soft)' }} />
                       </div>
-
                       {manualSent ? (
-                        <div style={{ background: '#edf8ee', borderRadius: 12, padding: '16px', border: '1px solid #bbdfc0', textAlign: 'center' }}>
-                          <p style={{ fontSize: 20, marginBottom: 6 }}>✅</p>
+                        <div style={{ background: 'rgba(68,171,81,0.09)', borderRadius: 14, padding: '18px', border: '1px solid rgba(68,171,81,0.25)', textAlign: 'center' }}>
+                          <p style={{ fontSize: 24, marginBottom: 6 }}>✅</p>
                           <p style={{ fontWeight: 700, color: '#44ab51', fontSize: 15 }}>Request sent to admin</p>
-                          <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4 }}>They'll manually log your check-in.</p>
+                          <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4, fontWeight: 500 }}>They'll manually log your check-in.</p>
                         </div>
                       ) : (
                         <>
@@ -630,7 +791,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                             value={manualNote}
                             onChange={e => setManualNote(e.target.value)}
                             rows={2}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid var(--border-soft)', fontSize: 14, fontFamily: 'inherit', resize: 'none', outline: 'none', marginBottom: 10, color: 'var(--text)' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: '1.5px solid var(--border-soft)', fontSize: 14, resize: 'none', outline: 'none', marginBottom: 10, color: 'var(--text)', background: 'var(--raised)', boxSizing: 'border-box' }}
                           />
                           <button
                             onClick={handleManualCheckIn}
@@ -639,9 +800,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                           >
                             {manualLoading ? 'Sending…' : '📩 Request Manual Check-in'}
                           </button>
-                          <p style={{ fontSize: 11, color: 'var(--text4)', textAlign: 'center', marginTop: 8 }}>
-                            Notifies the admin — they'll approve and log your time.
-                          </p>
+                          <p style={{ fontSize: 11, color: 'var(--text4)', textAlign: 'center', marginTop: 8, fontWeight: 500 }}>Admin will approve and log your time.</p>
                         </>
                       )}
                     </div>
@@ -649,33 +808,41 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                 </>
               ) : !attendance?.check_out ? (
                 <>
-                  <button
-                    onClick={handleCheckOut}
-                    disabled={checkLoading || !isOnRestaurantWifi}
-                    style={{
-                      width: '100%', padding: '18px', fontSize: 17, fontWeight: 700,
-                      background: isOnRestaurantWifi ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : '#e5e9f0',
-                      color: isOnRestaurantWifi ? 'white' : '#9ca3af',
-                      borderRadius: 14,
-                      boxShadow: isOnRestaurantWifi ? '0 6px 20px rgba(220,38,38,0.35)' : 'none',
-                    }}
-                  >
-                    {checkLoading ? 'Checking out…' : '🔴 Check Out'}
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 4 }}>
+                    <button
+                      onClick={handleCheckOut}
+                      disabled={checkLoading || !isOnRestaurantWifi}
+                      style={{
+                        width: 148, height: 148, borderRadius: '50%',
+                        background: isOnRestaurantWifi
+                          ? 'linear-gradient(145deg, #f87171 0%, #dc2626 100%)'
+                          : 'var(--raised)',
+                        color: isOnRestaurantWifi ? 'white' : 'var(--text4)',
+                        fontSize: 15, fontWeight: 800,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        animation: isOnRestaurantWifi && !checkLoading ? 'pulseRed 2s infinite' : 'none',
+                        border: isOnRestaurantWifi ? 'none' : '2px solid var(--border-soft)',
+                        cursor: isOnRestaurantWifi ? 'pointer' : 'not-allowed',
+                        letterSpacing: '-0.2px',
+                      }}
+                    >
+                      <span style={{ fontSize: 32 }}>{checkLoading ? '⏳' : '🔴'}</span>
+                      <span>{checkLoading ? 'Checking…' : 'Check Out'}</span>
+                    </button>
+                  </div>
 
-                  {/* Manual check-out fallback when off WiFi */}
                   {!isOnRestaurantWifi && (
-                    <div style={{ marginTop: 20 }}>
+                    <div style={{ marginTop: 24 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                        <div style={{ flex: 1, height: 1, background: '#e5e9f0' }} />
-                        <span style={{ fontSize: 12, color: 'var(--text4)', whiteSpace: 'nowrap' }}>WiFi not available?</span>
-                        <div style={{ flex: 1, height: 1, background: '#e5e9f0' }} />
+                        <div style={{ flex: 1, height: 1, background: 'var(--border-soft)' }} />
+                        <span style={{ fontSize: 12, color: 'var(--text4)', whiteSpace: 'nowrap', fontWeight: 500 }}>No WiFi?</span>
+                        <div style={{ flex: 1, height: 1, background: 'var(--border-soft)' }} />
                       </div>
                       {manualOutSent ? (
-                        <div style={{ background: '#edf8ee', borderRadius: 12, padding: '16px', border: '1px solid #bbdfc0', textAlign: 'center' }}>
-                          <p style={{ fontSize: 20, marginBottom: 6 }}>✅</p>
+                        <div style={{ background: 'rgba(68,171,81,0.09)', borderRadius: 14, padding: '18px', border: '1px solid rgba(68,171,81,0.25)', textAlign: 'center' }}>
+                          <p style={{ fontSize: 24, marginBottom: 6 }}>✅</p>
                           <p style={{ fontWeight: 700, color: '#44ab51', fontSize: 15 }}>Check-out request sent</p>
-                          <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4 }}>Admin will log your check-out time.</p>
+                          <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4, fontWeight: 500 }}>Admin will log your check-out time.</p>
                         </div>
                       ) : (
                         <>
@@ -684,7 +851,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                             value={manualOutNote}
                             onChange={e => setManualOutNote(e.target.value)}
                             rows={2}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid var(--border-soft)', fontSize: 14, fontFamily: 'inherit', resize: 'none', outline: 'none', marginBottom: 10, color: 'var(--text)' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: '1.5px solid var(--border-soft)', fontSize: 14, resize: 'none', outline: 'none', marginBottom: 10, color: 'var(--text)', background: 'var(--raised)', boxSizing: 'border-box' }}
                           />
                           <button
                             onClick={handleManualCheckOut}
@@ -693,24 +860,24 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                           >
                             {manualOutLoading ? 'Sending…' : '📩 Request Manual Check-out'}
                           </button>
-                          <p style={{ fontSize: 11, color: 'var(--text4)', textAlign: 'center', marginTop: 8 }}>Notifies the admin — they'll log your end time.</p>
+                          <p style={{ fontSize: 11, color: 'var(--text4)', textAlign: 'center', marginTop: 8, fontWeight: 500 }}>Admin will log your end time.</p>
                         </>
                       )}
                     </div>
                   )}
                 </>
               ) : (
-                <div style={{ textAlign: 'center', padding: '20px', background: '#edf8ee', borderRadius: 14, border: '1px solid #bbdfc0' }}>
-                  <p style={{ fontSize: 24, marginBottom: 6 }}>✅</p>
-                  <p style={{ color: '#44ab51', fontWeight: 700, fontSize: 16 }}>Shift complete for today!</p>
+                <div style={{ textAlign: 'center', padding: '28px 20px', background: 'rgba(68,171,81,0.08)', borderRadius: 18, border: '1px solid rgba(68,171,81,0.2)' }}>
+                  <p style={{ fontSize: 40, marginBottom: 8 }}>✅</p>
+                  <p style={{ color: '#44ab51', fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px' }}>Shift complete!</p>
+                  <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4, fontWeight: 500 }}>See you next time.</p>
                 </div>
               )}
             </div>
-          </div>
 
             {/* Weekly attendance history */}
             <div style={card}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>This Week's Attendance</h3>
+              <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 14, letterSpacing: '-0.2px' }}>This Week's Attendance</h3>
               {(() => {
                 const weekStart = new Date(getCurrentWeekStart())
                 return DAYS.map((dayName, i) => {
@@ -731,18 +898,16 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                   return (
                     <div key={dayName} style={{
                       display: 'flex', alignItems: 'center',
-                      padding: '10px 12px',
-                      borderRadius: 10,
-                      marginBottom: 4,
-                      background: isToday ? '#edf8ee' : 'var(--raised)',
-                      border: `1px solid ${isToday ? '#bbdfc0' : 'var(--border-soft)'}`,
+                      padding: '10px 12px', borderRadius: 12, marginBottom: 4,
+                      background: isToday ? 'rgba(68,171,81,0.09)' : 'var(--raised)',
+                      border: `1px solid ${isToday ? 'rgba(68,171,81,0.25)' : 'var(--border-soft)'}`,
                     }}>
                       <div style={{ width: 80 }}>
                         <p style={{ fontSize: 13, fontWeight: 700, color: isToday ? '#44ab51' : 'var(--text)' }}>
                           {dayName.slice(0, 3)}
                           {isToday && <span style={{ fontSize: 10, fontWeight: 600, color: '#44ab51', marginLeft: 5 }}>Today</span>}
                         </p>
-                        <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 1 }}>
+                        <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 1, fontWeight: 500 }}>
                           {date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                         </p>
                       </div>
@@ -750,27 +915,27 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                         <>
                           <div style={{ flex: 1, display: 'flex', gap: 20 }}>
                             <div>
-                              <p style={{ fontSize: 10, color: 'var(--text4)', marginBottom: 2 }}>In</p>
+                              <p style={{ fontSize: 10, color: 'var(--text4)', marginBottom: 2, fontWeight: 600 }}>In</p>
                               <p style={{ fontSize: 14, fontWeight: 700, color: '#44ab51' }}>{record.check_in || '—'}</p>
                             </div>
                             <div>
-                              <p style={{ fontSize: 10, color: 'var(--text4)', marginBottom: 2 }}>Out</p>
+                              <p style={{ fontSize: 10, color: 'var(--text4)', marginBottom: 2, fontWeight: 600 }}>Out</p>
                               <p style={{ fontSize: 14, fontWeight: 700, color: record.check_out ? '#44ab51' : 'var(--text4)' }}>
                                 {record.check_out || '—'}
                               </p>
                             </div>
                           </div>
                           {workedMins > 0 && (
-                            <p style={{ fontSize: 13, color: '#44ab51', fontWeight: 700 }}>
+                            <p style={{ fontSize: 13, color: '#44ab51', fontWeight: 800 }}>
                               {Math.round(workedMins / 60 * 10) / 10}h
                             </p>
                           )}
                           {record.check_in && !record.check_out && (
-                            <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, background: '#fef3c7', padding: '2px 8px', borderRadius: 6 }}>Active</span>
+                            <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700, background: 'rgba(245,158,11,0.12)', padding: '3px 9px', borderRadius: 7 }}>Active</span>
                           )}
                         </>
                       ) : (
-                        <p style={{ fontSize: 13, color: 'var(--text4)', flex: 1 }}>—</p>
+                        <p style={{ fontSize: 13, color: 'var(--text4)', flex: 1, fontWeight: 500 }}>—</p>
                       )}
                     </div>
                   )
@@ -783,11 +948,11 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
         {/* ── Availability Tab ── */}
         {tab === 'availability' && (
           <div style={card}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>My Availability</h2>
-            <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 18 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 800, marginBottom: 4, color: 'var(--text)', letterSpacing: '-0.3px' }}>My Availability</h2>
+            <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 18, fontWeight: 500 }}>
               Tap the days you can work and set your preferred hours.
               {(user.min_days || user.max_days) && (
-                <span style={{ color: '#44ab51', fontWeight: 600 }}> ({user.min_days || 1}–{user.max_days || 7} days/week)</span>
+                <span style={{ color: '#44ab51', fontWeight: 700 }}> ({user.min_days || 1}–{user.max_days || 7} days/week)</span>
               )}
             </p>
 
@@ -797,28 +962,28 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                   onClick={() => toggleDay(day)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
-                    padding: '12px 14px',
-                    borderRadius: preferences[day] ? '12px 12px 0 0' : 12,
-                    background: preferences[day] ? '#edf8ee' : '#f8f9fa',
-                    border: `1.5px solid ${preferences[day] ? '#44ab51' : '#e5e9f0'}`,
-                    borderBottom: preferences[day] ? 'none' : `1.5px solid #e5e9f0`,
+                    padding: '13px 16px',
+                    borderRadius: preferences[day] ? '14px 14px 0 0' : 14,
+                    background: preferences[day] ? 'rgba(68,171,81,0.08)' : 'var(--raised)',
+                    border: `1.5px solid ${preferences[day] ? '#44ab51' : 'var(--border-soft)'}`,
+                    borderBottom: preferences[day] ? 'none' : `1.5px solid var(--border-soft)`,
                     transition: 'all 0.15s',
                   }}
                 >
-                  <div style={{ width: 22, height: 22, borderRadius: 7, background: preferences[day] ? '#44ab51' : '#e5e9f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
-                    {preferences[day] && <span style={{ color: 'white', fontSize: 13, fontWeight: 700 }}>✓</span>}
+                  <div style={{ width: 22, height: 22, borderRadius: 7, background: preferences[day] ? '#44ab51' : 'var(--border-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                    {preferences[day] && <span style={{ color: 'white', fontSize: 13, fontWeight: 800 }}>✓</span>}
                   </div>
-                  <span style={{ fontWeight: 600, fontSize: 14, color: preferences[day] ? '#166534' : '#374151' }}>{day}</span>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: preferences[day] ? '#166534' : 'var(--text2)' }}>{day}</span>
                 </div>
 
                 {preferences[day] && (
-                  <div style={{ display: 'flex', gap: 12, padding: '10px 14px', background: '#edf8ee', borderRadius: '0 0 12px 12px', border: '1.5px solid #44ab51', borderTop: 'none' }}>
+                  <div style={{ display: 'flex', gap: 12, padding: '12px 16px', background: 'rgba(68,171,81,0.06)', borderRadius: '0 0 14px 14px', border: '1.5px solid #44ab51', borderTop: 'none' }}>
                     {[
                       { label: 'From', field: 'start', hours: day === 'Friday' || day === 'Saturday' ? HOURS_LATE : HOURS },
-                      { label: 'To', field: 'end', hours: day === 'Friday' || day === 'Saturday' ? HOURS_LATE : HOURS },
+                      { label: 'To',   field: 'end',   hours: day === 'Friday' || day === 'Saturday' ? HOURS_LATE : HOURS },
                     ].map(({ label, field, hours }) => (
                       <div key={field} style={{ flex: 1 }}>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>{label}</label>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</label>
                         <select value={preferences[day][field]} onChange={e => updateTime(day, field, e.target.value)} style={selectStyle}>
                           {hours.map(h => <option key={h}>{h}</option>)}
                         </select>
@@ -833,12 +998,13 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
               onClick={savePreferences}
               style={{
                 width: '100%',
-                background: saved ? '#edf8ee' : 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)',
+                background: saved ? 'rgba(68,171,81,0.1)' : 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)',
                 color: saved ? '#44ab51' : 'white',
-                padding: '14px', fontSize: 15, fontWeight: 700, borderRadius: 12, marginTop: 12,
-                boxShadow: saved ? 'none' : '0 4px 16px rgba(68,171,81,0.4)',
+                padding: '15px', fontSize: 15, fontWeight: 800, borderRadius: 14, marginTop: 14,
+                boxShadow: saved ? 'none' : '0 6px 20px rgba(68,171,81,0.4)',
                 transition: 'all 0.3s',
-                border: saved ? '1.5px solid #bbdfc0' : 'none',
+                border: saved ? '1.5px solid rgba(68,171,81,0.3)' : 'none',
+                letterSpacing: '-0.2px',
               }}
             >
               {saved ? '✓ Saved!' : 'Save Availability'}
@@ -853,36 +1019,36 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
         {tab === 'handover' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={card}>
-              <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Handover List</h2>
-              <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 16 }}>Add tasks for the next shift. Check off completed items.</p>
+              <h2 style={{ fontSize: 15, fontWeight: 800, marginBottom: 4, color: 'var(--text)', letterSpacing: '-0.3px' }}>Handover List</h2>
+              <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 18, fontWeight: 500 }}>Add tasks for the next shift. Check off completed items.</p>
 
-              <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 22 }}>
                 <input
                   placeholder="Add a task for the next shift…"
                   value={newTask}
                   onChange={e => setNewTask(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addTask()}
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, padding: '11px 14px', borderRadius: 12, border: '1.5px solid var(--border-soft)', fontSize: 14, outline: 'none', color: 'var(--text)', background: 'var(--raised)', boxSizing: 'border-box' }}
                 />
-                <button onClick={addTask} disabled={taskLoading} style={{ background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)', color: 'white', padding: '10px 18px', fontWeight: 700, fontSize: 14, borderRadius: 10, boxShadow: '0 4px 12px rgba(68,171,81,0.35)', whiteSpace: 'nowrap' }}>
+                <button onClick={addTask} disabled={taskLoading} style={{ background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)', color: 'white', padding: '11px 20px', fontWeight: 800, fontSize: 14, borderRadius: 12, boxShadow: '0 4px 14px rgba(68,171,81,0.4)', whiteSpace: 'nowrap' }}>
                   + Add
                 </button>
               </div>
 
               {handoverTasks.filter(t => !t.completed).length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', marginBottom: 10, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Pending</p>
+                <div style={{ marginBottom: 22 }}>
+                  <p style={{ fontSize: 10, fontWeight: 800, color: '#dc2626', marginBottom: 10, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Pending</p>
                   {handoverTasks.filter(t => !t.completed).map(task => (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid var(--border-table)' }}>
-                      <div onClick={() => toggleTask(task)} style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, border: '2px solid #d1d5db', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }} />
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid var(--border-table)' }}>
+                      <div onClick={() => toggleTask(task)} style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, border: '2px solid var(--border-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }} />
                       <div style={{ flex: 1 }}>
                         <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{task.task}</p>
-                        <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2 }}>
-                          Added by {task.added_by_name} · {new Date(task.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2, fontWeight: 500 }}>
+                          {task.added_by_name} · {new Date(task.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                       {task.added_by === user.id && (
-                        <button onClick={() => deleteTask(task.id)} style={{ background: '#fef2f2', color: '#dc2626', padding: '4px 10px', fontSize: 12, borderRadius: 7, fontWeight: 600 }}>🗑</button>
+                        <button onClick={() => deleteTask(task.id)} style={{ background: 'rgba(220,38,38,0.08)', color: '#dc2626', padding: '5px 10px', fontSize: 12, borderRadius: 8, fontWeight: 700 }}>🗑</button>
                       )}
                     </div>
                   ))}
@@ -891,18 +1057,18 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
               {handoverTasks.filter(t => t.completed).length > 0 && (
                 <div>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: '#44ab51', marginBottom: 10, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Completed</p>
+                  <p style={{ fontSize: 10, fontWeight: 800, color: '#44ab51', marginBottom: 10, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Completed</p>
                   {handoverTasks.filter(t => t.completed).map(task => (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1px solid var(--border-table)', opacity: 0.65 }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid var(--border-table)', opacity: 0.6 }}>
                       <div onClick={() => toggleTask(task)} style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, background: '#44ab51', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ color: 'white', fontSize: 13, fontWeight: 700 }}>✓</span>
+                        <span style={{ color: 'white', fontSize: 13, fontWeight: 800 }}>✓</span>
                       </div>
                       <div style={{ flex: 1 }}>
                         <p style={{ fontSize: 14, fontWeight: 500, textDecoration: 'line-through', color: 'var(--text4)' }}>{task.task}</p>
-                        <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2 }}>Added by {task.added_by_name} · Completed by {task.completed_by_name}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2, fontWeight: 500 }}>by {task.added_by_name} · done by {task.completed_by_name}</p>
                       </div>
                       {task.added_by === user.id && (
-                        <button onClick={() => deleteTask(task.id)} style={{ background: '#fef2f2', color: '#dc2626', padding: '4px 10px', fontSize: 12, borderRadius: 7, fontWeight: 600 }}>🗑</button>
+                        <button onClick={() => deleteTask(task.id)} style={{ background: 'rgba(220,38,38,0.08)', color: '#dc2626', padding: '5px 10px', fontSize: 12, borderRadius: 8, fontWeight: 700 }}>🗑</button>
                       )}
                     </div>
                   ))}
@@ -910,11 +1076,40 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
               )}
 
               {handoverTasks.length === 0 && (
-                <p style={{ color: 'var(--text4)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>No tasks yet. Add something for the next shift!</p>
+                <p style={{ color: 'var(--text4)', fontSize: 14, textAlign: 'center', padding: '28px 0', fontWeight: 500 }}>No tasks yet. Add something for the next shift!</p>
               )}
             </div>
           </div>
         )}
+      </div>
+
+      {/* Bottom tab bar — fixed */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        background: 'var(--card)',
+        borderTop: '1px solid var(--border)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        padding: '8px 12px',
+        paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+        display: 'flex', gap: 4,
+        zIndex: 100,
+      }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            flex: 1, padding: '8px 4px 6px',
+            background: tab === t.id ? '#44ab51' : 'transparent',
+            borderRadius: 12,
+            color: tab === t.id ? 'white' : 'var(--text4)',
+            fontWeight: tab === t.id ? 800 : 500,
+            fontSize: 10,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            transition: 'background 0.2s, color 0.2s',
+          }}>
+            <span style={{ fontSize: 20 }}>{t.icon}</span>
+            <span style={{ letterSpacing: '0.01em' }}>{t.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   )
