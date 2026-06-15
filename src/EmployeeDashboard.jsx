@@ -129,6 +129,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
       .channel(`employee-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, () => {
         fetchSchedule(viewingWeekRef.current)
+        fetchMyWeekData(viewingWeekRef.current)
         fetchWeekOptions()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'handover' }, fetchHandover)
@@ -158,6 +159,21 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
     if (data) setSchedule(data)
   }
 
+  const fetchMyWeekData = async (weekFilter = null) => {
+    const weekStart = weekFilter || getCurrentWeekStart()
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekEnd.getDate() + 7)
+    const weekEndStr = weekEnd.toISOString().split('T')[0]
+
+    const [{ data: shiftsData }, { data: attData }] = await Promise.all([
+      supabase.from('shifts').select('*').eq('published', true).eq('week_start', weekStart).eq('employee_id', user.id),
+      supabase.from('attendance').select('*').eq('employee_id', user.id).gte('date', weekStart).lt('date', weekEndStr),
+    ])
+
+    if (shiftsData) setMyWeekShifts(shiftsData)
+    if (attData) setWeekAttendance(attData)
+  }
+
   const fetchWeekOptions = async () => {
     const { data } = await supabase
       .from('shifts')
@@ -173,19 +189,14 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
   const fetchData = async () => {
     setLoading(true)
     const today = new Date().toISOString().split('T')[0]
-    const weekStart = getCurrentWeekStart()
 
     const [
       { data: prefData },
-      { data: weekAttData },
-      { data: myShiftsData },
       { data: empData },
       { data: attData },
       { data: publishSetting },
     ] = await Promise.all([
       supabase.from('preferences').select('*').eq('employee_id', user.id),
-      supabase.from('attendance').select('*').eq('employee_id', user.id).gte('date', weekStart),
-      supabase.from('shifts').select('*').eq('published', true).eq('week_start', weekStart).eq('employee_id', user.id),
       supabase.from('employees').select('*').eq('role', 'employee'),
       supabase.from('attendance').select('*').eq('employee_id', user.id).eq('date', today).single(),
       supabase.from('settings').select('*').eq('id', 'schedule_published_at').single(),
@@ -196,8 +207,6 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
       prefData.forEach(p => { map[p.day] = { available: p.available, start: p.start_time, end: p.end_time } })
       setPreferences(map)
     }
-    if (weekAttData) setWeekAttendance(weekAttData)
-    if (myShiftsData) setMyWeekShifts(myShiftsData)
     if (empData) setEmployees(empData)
     if (attData) setAttendance(attData)
 
@@ -207,7 +216,10 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
       if (!lastSeen || new Date(lastSeen) < publishedAt) setNewScheduleAlert(true)
     }
 
-    await fetchSchedule(viewingWeekRef.current)
+    await Promise.all([
+      fetchSchedule(viewingWeekRef.current),
+      fetchMyWeekData(viewingWeekRef.current),
+    ])
     setLoading(false)
   }
 
@@ -442,7 +454,9 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
             {/* My hours — always current week */}
             <div style={card}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginBottom: 12 }}>My Hours This Week</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginBottom: 12 }}>
+                My Hours — Week {getWeekNumber(viewingWeek)}
+              </p>
               <div style={{ display: 'flex', gap: 10 }}>
                 <div style={{ flex: 1, background: 'var(--raised)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
                   <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 4 }}>Scheduled</p>
@@ -468,6 +482,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                     setViewingWeek(val)
                     viewingWeekRef.current = val
                     fetchSchedule(val)
+                    fetchMyWeekData(val)
                   }}
                   style={weekSelectStyle}
                 >
