@@ -470,39 +470,38 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
   }
 
   const handleCheckIn = async () => {
-    if (userIp !== RESTAURANT_IP) {
-      showToast('Must be on restaurant WiFi to check in', 'error')
-      return
-    }
     if (navigator.vibrate) navigator.vibrate(60)
     setCheckLoading(true)
-    const today = new Date().toISOString().split('T')[0]
-    const now = new Date().toTimeString().slice(0, 5)
-    const { data } = await supabase
-      .from('attendance').insert({ employee_id: user.id, date: today, check_in: now }).select().single()
-    if (data) {
-      setAttendance(data)
-      showToast(`Checked in at ${now}`, 'success')
-    }
+    const { data, error } = await supabase.functions.invoke('check-in', {
+      body: { employee_id: user.id, action: 'check-in' },
+    })
     setCheckLoading(false)
+    if (error || data?.error) {
+      showToast(data?.error || 'Check-in failed. Try again.', 'error')
+      return
+    }
+    if (data?.data) {
+      setAttendance(data.data)
+      showToast(`Checked in at ${data.data.check_in}`, 'success')
+    }
   }
 
   const handleCheckOut = async () => {
-    if (userIp !== RESTAURANT_IP) {
-      showToast('Must be on restaurant WiFi to check out', 'error')
-      return
-    }
     if (!attendance) return
     if (navigator.vibrate) navigator.vibrate(60)
     setCheckLoading(true)
-    const now = new Date().toTimeString().slice(0, 5)
-    const { data } = await supabase
-      .from('attendance').update({ check_out: now }).eq('id', attendance.id).select().single()
-    if (data) {
-      setAttendance(data)
-      showToast(`Checked out at ${now}`, 'success')
-    }
+    const { data, error } = await supabase.functions.invoke('check-in', {
+      body: { employee_id: user.id, action: 'check-out' },
+    })
     setCheckLoading(false)
+    if (error || data?.error) {
+      showToast(data?.error || 'Check-out failed. Try again.', 'error')
+      return
+    }
+    if (data?.data) {
+      setAttendance(data.data)
+      showToast(`Checked out at ${data.data.check_out}`, 'success')
+    }
   }
 
   const handleManualCheckOut = async () => {
