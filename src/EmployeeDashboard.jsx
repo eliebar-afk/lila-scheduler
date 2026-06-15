@@ -434,47 +434,6 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
   const isOnRestaurantWifi = userIp === RESTAURANT_IP
 
-  const handleTouchStart = (e) => {
-    touchStartY.current = e.touches[0].clientY
-  }
-
-  const handleTouchMove = (e) => {
-    if (window.scrollY > 0) return
-    const delta = e.touches[0].clientY - touchStartY.current
-    if (delta > 0) setPullY(Math.min(delta * 0.45, 72))
-  }
-
-  const handleTouchEnd = async () => {
-    if (pullY > 52) {
-      setRefreshing(true)
-      setPullY(0)
-      await fetchData()
-      setRefreshing(false)
-    } else {
-      setPullY(0)
-    }
-  }
-
-  const Skeleton = ({ w = '100%', h = 13, mb = 10 }) => (
-    <div style={{
-      width: w, height: h, borderRadius: 8,
-      background: 'linear-gradient(90deg, var(--raised) 25%, var(--border-soft) 50%, var(--raised) 75%)',
-      backgroundSize: '200% 100%',
-      animation: 'shimmer 1.5s ease-in-out infinite',
-      marginBottom: mb,
-      flexShrink: 0,
-    }} />
-  )
-
-  const SkeletonCard = ({ rows = 3 }) => (
-    <div style={{ ...card, marginBottom: 14 }}>
-      <Skeleton w="55%" h={16} mb={18} />
-      {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} w={i % 3 === 2 ? '70%' : '100%'} />
-      ))}
-    </div>
-  )
-
   const scheduledHours = myWeekShifts.reduce((sum, s) => {
     if (!s.start_time || !s.end_time) return sum
     const [inH, inM] = s.start_time.split(':').map(Number)
