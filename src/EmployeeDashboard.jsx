@@ -112,9 +112,12 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
   const [manualOutNote, setManualOutNote] = useState('')
   const [manualOutLoading, setManualOutLoading] = useState(false)
   const [manualOutSent, setManualOutSent] = useState(false)
+  const [pullY, setPullY] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Ref so real-time callbacks always see the current viewingWeek without stale closure
   const viewingWeekRef = useRef(null)
+  const touchStartY = useRef(0)
 
   useEffect(() => {
     fetchData()
@@ -353,6 +356,47 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
   const isOnRestaurantWifi = userIp === RESTAURANT_IP
 
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  const handleTouchMove = (e) => {
+    if (window.scrollY > 0) return
+    const delta = e.touches[0].clientY - touchStartY.current
+    if (delta > 0) setPullY(Math.min(delta * 0.45, 72))
+  }
+
+  const handleTouchEnd = async () => {
+    if (pullY > 52) {
+      setRefreshing(true)
+      setPullY(0)
+      await fetchData()
+      setRefreshing(false)
+    } else {
+      setPullY(0)
+    }
+  }
+
+  const Skeleton = ({ w = '100%', h = 13, mb = 10 }) => (
+    <div style={{
+      width: w, height: h, borderRadius: 8,
+      background: 'linear-gradient(90deg, var(--raised) 25%, var(--border-soft) 50%, var(--raised) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'shimmer 1.5s ease-in-out infinite',
+      marginBottom: mb,
+      flexShrink: 0,
+    }} />
+  )
+
+  const SkeletonCard = ({ rows = 3 }) => (
+    <div style={{ ...card, marginBottom: 14 }}>
+      <Skeleton w="55%" h={16} mb={18} />
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} w={i % 3 === 2 ? '70%' : '100%'} />
+      ))}
+    </div>
+  )
+
   const scheduledHours = myWeekShifts.reduce((sum, s) => {
     if (!s.start_time || !s.end_time) return sum
     const [inH, inM] = s.start_time.split(':').map(Number)
@@ -371,16 +415,6 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
     return sum + Math.round(mins / 60 * 10) / 10
   }, 0)
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #e5e9f0', borderTopColor: '#44ab51', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
-        <p style={{ color: 'var(--text4)', fontSize: 14 }}>Loading…</p>
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
-    </div>
-  )
-
   const tabs = [
     { id: 'schedule', icon: '📅', label: 'Schedule' },
     { id: 'checkin', icon: '✅', label: 'Check In' },
@@ -390,7 +424,16 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ minHeight: '100vh', background: 'var(--bg)' }}
+    >
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+      `}</style>
       {/* Header */}
       <div style={{ background: 'linear-gradient(135deg, #44ab51 0%, #37944a 100%)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(68,171,81,0.25)' }}>
         <div>
@@ -414,25 +457,50 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
       </div>
 
       {/* Tabs */}
-      <div style={{ background: 'var(--card)', borderBottom: '1px solid var(--border-soft)', padding: '6px 10px', display: 'flex', gap: 4 }}>
+      <div style={{ background: 'var(--card)', borderBottom: '1px solid var(--border-soft)', padding: '4px 8px', display: 'flex', gap: 4 }}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
-            flex: 1, padding: '8px 4px',
+            flex: 1, padding: '10px 4px', minHeight: 54,
             background: tab === t.id ? '#44ab51' : 'transparent',
-            borderRadius: 10,
+            borderRadius: 12,
             color: tab === t.id ? 'white' : '#9ca3af',
             fontWeight: tab === t.id ? 700 : 500,
-            fontSize: 10,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            fontSize: 11,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
             transition: 'all 0.2s',
           }}>
-            <span style={{ fontSize: 18 }}>{t.icon}</span>
+            <span style={{ fontSize: 22 }}>{t.icon}</span>
             <span>{t.label}</span>
           </button>
         ))}
       </div>
 
+      {/* Pull-to-refresh indicator */}
+      <div style={{
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        height: refreshing ? 44 : pullY * 0.6,
+        overflow: 'hidden',
+        transition: pullY === 0 && !refreshing ? 'height 0.25s ease' : 'none',
+      }}>
+        {(pullY > 8 || refreshing) && (
+          <div style={{
+            width: 26, height: 26, borderRadius: '50%',
+            border: '2.5px solid var(--border-soft)', borderTopColor: '#44ab51',
+            animation: refreshing ? 'spin 0.8s linear infinite' : 'none',
+            transform: !refreshing ? `rotate(${Math.min(pullY * 3.5, 360)}deg)` : undefined,
+            transition: 'opacity 0.15s',
+          }} />
+        )}
+      </div>
+
       <div style={{ padding: 16, maxWidth: 820, margin: '0 auto' }}>
+        {loading ? (
+          <>
+            <SkeletonCard rows={4} />
+            <SkeletonCard rows={3} />
+            <SkeletonCard rows={2} />
+          </>
+        ) : (<>
 
         {/* ── Schedule Tab ── */}
         {tab === 'schedule' && (
@@ -914,6 +982,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
             </div>
           </div>
         )}
+        </>)}
       </div>
     </div>
   )
