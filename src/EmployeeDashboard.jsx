@@ -130,6 +130,130 @@ function Toast({ msg, type }) {
   )
 }
 
+function LiveClock() {
+  const [time, setTime] = useState(() => new Date().toTimeString().slice(0, 5))
+  useEffect(() => {
+    const id = setInterval(() => setTime(new Date().toTimeString().slice(0, 5)), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <>{time}</>
+}
+
+function SwipeButton({ label, onComplete, disabled, color }) {
+  const [progress, setProgress] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const [done, setDone] = useState(false)
+  const trackRef = useRef(null)
+  const startX = useRef(0)
+  const progressRef = useRef(0)
+
+  const THUMB = 56
+  const PAD = 6
+
+  const travel = () => (trackRef.current?.offsetWidth ?? 320) - THUMB - PAD * 2
+
+  const onStart = (x) => {
+    if (disabled || done) return
+    setDragging(true)
+    startX.current = x - progressRef.current * travel()
+  }
+
+  const onMove = (x) => {
+    if (!dragging) return
+    const p = Math.max(0, Math.min(1, (x - startX.current) / travel()))
+    progressRef.current = p
+    setProgress(p)
+  }
+
+  const onEnd = async () => {
+    if (!dragging) return
+    setDragging(false)
+    if (progressRef.current > 0.82) {
+      progressRef.current = 1
+      setProgress(1)
+      setDone(true)
+      await onComplete()
+    } else {
+      progressRef.current = 0
+      setProgress(0)
+    }
+  }
+
+  const thumbLeft = PAD + progress * travel()
+  const fillPct = trackRef.current
+    ? Math.min(100, ((thumbLeft + THUMB / 2) / trackRef.current.offsetWidth) * 100)
+    : 0
+
+  return (
+    <div
+      ref={trackRef}
+      onMouseDown={e => onStart(e.clientX)}
+      onMouseMove={e => dragging && onMove(e.clientX)}
+      onMouseUp={onEnd}
+      onMouseLeave={() => dragging && onEnd()}
+      onTouchStart={e => { e.preventDefault(); onStart(e.touches[0].clientX) }}
+      onTouchMove={e => { e.preventDefault(); onMove(e.touches[0].clientX) }}
+      onTouchEnd={onEnd}
+      style={{
+        position: 'relative', height: 70, borderRadius: 35,
+        background: disabled ? 'var(--raised)' : `${color}10`,
+        border: `1.5px solid ${disabled ? 'var(--border-soft)' : color + '30'}`,
+        overflow: 'hidden',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        userSelect: 'none', WebkitUserSelect: 'none',
+        touchAction: 'none',
+      }}
+    >
+      {/* Fill */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, bottom: 0,
+        width: `${fillPct}%`,
+        background: `${color}20`,
+        borderRadius: 35,
+        transition: dragging ? 'none' : 'width 0.45s cubic-bezier(0.34,1.56,0.64,1)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Label */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        pointerEvents: 'none',
+      }}>
+        <span style={{
+          fontSize: 15, fontWeight: 700,
+          color: disabled ? 'var(--text4)' : color,
+          letterSpacing: '-0.2px',
+          opacity: Math.max(0, 1 - progress * 2.5),
+          transition: dragging ? 'none' : 'opacity 0.3s',
+        }}>
+          {label}
+        </span>
+      </div>
+
+      {/* Thumb */}
+      <div style={{
+        position: 'absolute',
+        top: PAD, left: thumbLeft,
+        width: THUMB, height: THUMB,
+        borderRadius: '50%',
+        background: disabled
+          ? 'var(--border-soft)'
+          : done
+            ? color
+            : `linear-gradient(145deg, ${color}cc, ${color})`,
+        boxShadow: disabled ? 'none' : `0 4px 20px ${color}55`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: dragging ? 'none' : 'left 0.45s cubic-bezier(0.34,1.56,0.64,1)',
+        pointerEvents: 'none',
+        fontSize: 22, color: 'white', fontWeight: 800,
+      }}>
+        {done ? '✓' : '›'}
+      </div>
+    </div>
+  )
+}
+
 export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDarkMode }) {
   const [preferences, setPreferences] = useState({})
   const [schedule, setSchedule] = useState([])
@@ -716,164 +840,122 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
         {/* ── Check In Tab ── */}
         {tab === 'checkin' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={card}>
-              <h2 style={{ fontSize: 15, fontWeight: 800, marginBottom: 4, color: 'var(--text)', letterSpacing: '-0.3px' }}>Check In / Out</h2>
-              <p style={{ color: 'var(--text4)', fontSize: 13, marginBottom: 24, fontWeight: 500 }}>Must be on the restaurant WiFi.</p>
 
-              {/* WiFi status */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, marginBottom: 24, background: isOnRestaurantWifi ? 'rgba(68,171,81,0.09)' : 'rgba(220,38,38,0.06)', border: `1px solid ${isOnRestaurantWifi ? 'rgba(68,171,81,0.28)' : 'rgba(220,38,38,0.2)'}` }}>
-                <div style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, background: isOnRestaurantWifi ? '#44ab51' : '#dc2626', boxShadow: `0 0 0 3px ${isOnRestaurantWifi ? 'rgba(68,171,81,0.2)' : 'rgba(220,38,38,0.2)'}` }} />
-                <p style={{ fontWeight: 600, fontSize: 13, color: isOnRestaurantWifi ? '#166534' : '#991b1b' }}>
-                  {isOnRestaurantWifi ? 'Connected to restaurant WiFi' : 'Not on restaurant WiFi'}
-                </p>
+            {/* Main card */}
+            <div style={card}>
+
+              {/* WiFi pill */}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 20, marginBottom: 28, background: isOnRestaurantWifi ? 'rgba(68,171,81,0.09)' : 'rgba(220,38,38,0.06)', border: `1px solid ${isOnRestaurantWifi ? 'rgba(68,171,81,0.25)' : 'rgba(220,38,38,0.18)'}` }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: isOnRestaurantWifi ? '#44ab51' : '#dc2626', boxShadow: `0 0 0 2px ${isOnRestaurantWifi ? 'rgba(68,171,81,0.25)' : 'rgba(220,38,38,0.2)'}` }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: isOnRestaurantWifi ? '#166534' : '#991b1b' }}>
+                  {isOnRestaurantWifi ? 'Restaurant WiFi' : 'No restaurant WiFi'}
+                </span>
               </div>
 
-              {/* Today's record */}
-              {attendance && (
-                <div style={{ padding: '14px 16px', background: 'var(--raised)', borderRadius: 14, marginBottom: 24, border: '1px solid var(--border-soft)' }}>
-                  <p style={{ fontSize: 10, color: 'var(--text4)', marginBottom: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Today's Record</p>
-                  <div style={{ display: 'flex', gap: 28 }}>
-                    <div>
-                      <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 3, fontWeight: 500 }}>Checked in</p>
-                      <p style={{ fontWeight: 800, fontSize: 20, color: '#44ab51', letterSpacing: '-0.3px' }}>{attendance.check_in || '—'}</p>
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 3, fontWeight: 500 }}>Checked out</p>
-                      <p style={{ fontWeight: 800, fontSize: 20, color: attendance.check_out ? '#44ab51' : 'var(--text4)', letterSpacing: '-0.3px' }}>{attendance.check_out || '—'}</p>
-                    </div>
-                  </div>
+              {/* Live clock */}
+              {!attendance?.check_out && (
+                <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text4)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                    {!attendance?.check_in ? 'Check in at' : 'Check out at'}
+                  </p>
+                  <p style={{ fontSize: 58, fontWeight: 900, color: 'var(--text)', letterSpacing: '-3px', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                    <LiveClock />
+                  </p>
                 </div>
               )}
 
-              {/* Circular check-in button */}
+              {/* Swipe button */}
               {!attendance?.check_in ? (
                 <>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 4 }}>
-                    <button
-                      onClick={handleCheckIn}
-                      disabled={checkLoading || !isOnRestaurantWifi}
-                      style={{
-                        width: 148, height: 148, borderRadius: '50%',
-                        background: isOnRestaurantWifi
-                          ? 'linear-gradient(145deg, #52c761 0%, #37944a 100%)'
-                          : 'var(--raised)',
-                        color: isOnRestaurantWifi ? 'white' : 'var(--text4)',
-                        fontSize: 15, fontWeight: 800,
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
-                        animation: isOnRestaurantWifi && !checkLoading ? 'pulseGreen 2s infinite' : 'none',
-                        border: isOnRestaurantWifi ? 'none' : '2px solid var(--border-soft)',
-                        cursor: isOnRestaurantWifi ? 'pointer' : 'not-allowed',
-                        letterSpacing: '-0.2px',
-                      }}
-                    >
-                      <span style={{ fontSize: 32 }}>{checkLoading ? '⏳' : '🟢'}</span>
-                      <span>{checkLoading ? 'Checking…' : 'Check In'}</span>
-                    </button>
-                  </div>
-
+                  <SwipeButton
+                    key="checkin"
+                    label={checkLoading ? 'Checking in…' : '› Slide to check in'}
+                    onComplete={handleCheckIn}
+                    disabled={!isOnRestaurantWifi || checkLoading}
+                    color="#44ab51"
+                  />
                   {!isOnRestaurantWifi && (
-                    <div style={{ marginTop: 24 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                        <div style={{ flex: 1, height: 1, background: 'var(--border-soft)' }} />
-                        <span style={{ fontSize: 12, color: 'var(--text4)', whiteSpace: 'nowrap', fontWeight: 500 }}>No WiFi?</span>
-                        <div style={{ flex: 1, height: 1, background: 'var(--border-soft)' }} />
-                      </div>
-                      {manualSent ? (
-                        <div style={{ background: 'rgba(68,171,81,0.09)', borderRadius: 14, padding: '18px', border: '1px solid rgba(68,171,81,0.25)', textAlign: 'center' }}>
-                          <p style={{ fontSize: 24, marginBottom: 6 }}>✅</p>
-                          <p style={{ fontWeight: 700, color: '#44ab51', fontSize: 15 }}>Request sent to admin</p>
-                          <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4, fontWeight: 500 }}>They'll manually log your check-in.</p>
-                        </div>
-                      ) : (
-                        <>
-                          <textarea
-                            placeholder="Optional: explain why you're not on WiFi…"
-                            value={manualNote}
-                            onChange={e => setManualNote(e.target.value)}
-                            rows={2}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: '1.5px solid var(--border-soft)', fontSize: 14, resize: 'none', outline: 'none', marginBottom: 10, color: 'var(--text)', background: 'var(--raised)', boxSizing: 'border-box' }}
-                          />
-                          <button
-                            onClick={handleManualCheckIn}
-                            disabled={manualLoading}
-                            style={{ width: '100%', padding: '13px', fontSize: 14, fontWeight: 700, background: 'var(--raised)', color: 'var(--text2)', borderRadius: 12, border: '1.5px solid var(--border-soft)' }}
-                          >
-                            {manualLoading ? 'Sending…' : '📩 Request Manual Check-in'}
-                          </button>
-                          <p style={{ fontSize: 11, color: 'var(--text4)', textAlign: 'center', marginTop: 8, fontWeight: 500 }}>Admin will approve and log your time.</p>
-                        </>
-                      )}
-                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--text4)', textAlign: 'center', marginTop: 10, fontWeight: 500 }}>
+                      Connect to restaurant WiFi to unlock
+                    </p>
                   )}
                 </>
               ) : !attendance?.check_out ? (
                 <>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 4 }}>
-                    <button
-                      onClick={handleCheckOut}
-                      disabled={checkLoading || !isOnRestaurantWifi}
-                      style={{
-                        width: 148, height: 148, borderRadius: '50%',
-                        background: isOnRestaurantWifi
-                          ? 'linear-gradient(145deg, #f87171 0%, #dc2626 100%)'
-                          : 'var(--raised)',
-                        color: isOnRestaurantWifi ? 'white' : 'var(--text4)',
-                        fontSize: 15, fontWeight: 800,
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
-                        animation: isOnRestaurantWifi && !checkLoading ? 'pulseRed 2s infinite' : 'none',
-                        border: isOnRestaurantWifi ? 'none' : '2px solid var(--border-soft)',
-                        cursor: isOnRestaurantWifi ? 'pointer' : 'not-allowed',
-                        letterSpacing: '-0.2px',
-                      }}
-                    >
-                      <span style={{ fontSize: 32 }}>{checkLoading ? '⏳' : '🔴'}</span>
-                      <span>{checkLoading ? 'Checking…' : 'Check Out'}</span>
-                    </button>
-                  </div>
-
-                  {!isOnRestaurantWifi && (
-                    <div style={{ marginTop: 24 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                        <div style={{ flex: 1, height: 1, background: 'var(--border-soft)' }} />
-                        <span style={{ fontSize: 12, color: 'var(--text4)', whiteSpace: 'nowrap', fontWeight: 500 }}>No WiFi?</span>
-                        <div style={{ flex: 1, height: 1, background: 'var(--border-soft)' }} />
-                      </div>
-                      {manualOutSent ? (
-                        <div style={{ background: 'rgba(68,171,81,0.09)', borderRadius: 14, padding: '18px', border: '1px solid rgba(68,171,81,0.25)', textAlign: 'center' }}>
-                          <p style={{ fontSize: 24, marginBottom: 6 }}>✅</p>
-                          <p style={{ fontWeight: 700, color: '#44ab51', fontSize: 15 }}>Check-out request sent</p>
-                          <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4, fontWeight: 500 }}>Admin will log your check-out time.</p>
-                        </div>
-                      ) : (
-                        <>
-                          <textarea
-                            placeholder="Optional: explain why you're not on WiFi…"
-                            value={manualOutNote}
-                            onChange={e => setManualOutNote(e.target.value)}
-                            rows={2}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: '1.5px solid var(--border-soft)', fontSize: 14, resize: 'none', outline: 'none', marginBottom: 10, color: 'var(--text)', background: 'var(--raised)', boxSizing: 'border-box' }}
-                          />
-                          <button
-                            onClick={handleManualCheckOut}
-                            disabled={manualOutLoading}
-                            style={{ width: '100%', padding: '13px', fontSize: 14, fontWeight: 700, background: 'var(--raised)', color: 'var(--text2)', borderRadius: 12, border: '1.5px solid var(--border-soft)' }}
-                          >
-                            {manualOutLoading ? 'Sending…' : '📩 Request Manual Check-out'}
-                          </button>
-                          <p style={{ fontSize: 11, color: 'var(--text4)', textAlign: 'center', marginTop: 8, fontWeight: 500 }}>Admin will log your end time.</p>
-                        </>
-                      )}
+                  {/* Today's record so far */}
+                  <div style={{ display: 'flex', gap: 20, padding: '12px 16px', background: 'var(--raised)', borderRadius: 14, marginBottom: 16, border: '1px solid var(--border-soft)' }}>
+                    <div>
+                      <p style={{ fontSize: 10, color: 'var(--text4)', fontWeight: 700, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Checked in</p>
+                      <p style={{ fontSize: 20, fontWeight: 800, color: '#44ab51', letterSpacing: '-0.3px' }}>{attendance.check_in}</p>
                     </div>
+                  </div>
+                  <SwipeButton
+                    key="checkout"
+                    label={checkLoading ? 'Checking out…' : '› Slide to check out'}
+                    onComplete={handleCheckOut}
+                    disabled={!isOnRestaurantWifi || checkLoading}
+                    color="#dc2626"
+                  />
+                  {!isOnRestaurantWifi && (
+                    <p style={{ fontSize: 12, color: 'var(--text4)', textAlign: 'center', marginTop: 10, fontWeight: 500 }}>
+                      Connect to restaurant WiFi to unlock
+                    </p>
                   )}
                 </>
               ) : (
-                <div style={{ textAlign: 'center', padding: '28px 20px', background: 'rgba(68,171,81,0.08)', borderRadius: 18, border: '1px solid rgba(68,171,81,0.2)' }}>
-                  <p style={{ fontSize: 40, marginBottom: 8 }}>✅</p>
-                  <p style={{ color: '#44ab51', fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px' }}>Shift complete!</p>
-                  <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4, fontWeight: 500 }}>See you next time.</p>
-                </div>
+                <>
+                  {/* Completed state */}
+                  <div style={{ textAlign: 'center', padding: '20px 0 8px' }}>
+                    <p style={{ fontSize: 44, marginBottom: 8 }}>✅</p>
+                    <p style={{ color: '#44ab51', fontWeight: 800, fontSize: 18, letterSpacing: '-0.3px' }}>Shift complete!</p>
+                    <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4, fontWeight: 500 }}>See you next time.</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 20, padding: '14px 16px', background: 'rgba(68,171,81,0.08)', borderRadius: 14, marginTop: 20, border: '1px solid rgba(68,171,81,0.18)' }}>
+                    <div>
+                      <p style={{ fontSize: 10, color: '#44ab51', fontWeight: 700, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>In</p>
+                      <p style={{ fontSize: 20, fontWeight: 800, color: '#44ab51', letterSpacing: '-0.3px' }}>{attendance.check_in}</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 10, color: '#44ab51', fontWeight: 700, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Out</p>
+                      <p style={{ fontSize: 20, fontWeight: 800, color: '#44ab51', letterSpacing: '-0.3px' }}>{attendance.check_out}</p>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
+
+            {/* Manual request card — only when off WiFi and shift not done */}
+            {!isOnRestaurantWifi && !attendance?.check_out && (
+              <div style={card}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginBottom: 14 }}>
+                  {!attendance?.check_in ? '📩 Request manual check-in' : '📩 Request manual check-out'}
+                </p>
+                {(!attendance?.check_in ? manualSent : manualOutSent) ? (
+                  <div style={{ background: 'rgba(68,171,81,0.09)', borderRadius: 12, padding: '16px', border: '1px solid rgba(68,171,81,0.2)', textAlign: 'center' }}>
+                    <p style={{ fontWeight: 700, color: '#44ab51', fontSize: 14 }}>✅ Request sent to admin</p>
+                    <p style={{ color: 'var(--text3)', fontSize: 12, marginTop: 4, fontWeight: 500 }}>They'll manually log your time.</p>
+                  </div>
+                ) : (
+                  <>
+                    <textarea
+                      placeholder="Optional: explain why you're not on WiFi…"
+                      value={!attendance?.check_in ? manualNote : manualOutNote}
+                      onChange={e => !attendance?.check_in ? setManualNote(e.target.value) : setManualOutNote(e.target.value)}
+                      rows={2}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: '1.5px solid var(--border-soft)', fontSize: 14, resize: 'none', outline: 'none', marginBottom: 10, color: 'var(--text)', background: 'var(--raised)', boxSizing: 'border-box' }}
+                    />
+                    <button
+                      onClick={!attendance?.check_in ? handleManualCheckIn : handleManualCheckOut}
+                      disabled={!attendance?.check_in ? manualLoading : manualOutLoading}
+                      style={{ width: '100%', padding: '13px', fontSize: 14, fontWeight: 700, background: 'var(--raised)', color: 'var(--text2)', borderRadius: 12, border: '1.5px solid var(--border-soft)' }}
+                    >
+                      {(!attendance?.check_in ? manualLoading : manualOutLoading) ? 'Sending…' : 'Send request to admin'}
+                    </button>
+                    <p style={{ fontSize: 11, color: 'var(--text4)', textAlign: 'center', marginTop: 8, fontWeight: 500 }}>Admin will approve and log your time.</p>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Weekly attendance history */}
             <div style={card}>
