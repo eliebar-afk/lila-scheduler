@@ -1122,7 +1122,6 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
             </div>
           </div>
         )}
-        </>)}
       </div>
 
       {/* Bottom tab bar — fixed */}
