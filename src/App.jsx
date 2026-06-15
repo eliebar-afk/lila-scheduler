@@ -75,7 +75,7 @@ export default function App() {
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
-    <div style={{ ...cssVars, minHeight: '100vh' }}>
+    <div style={{ ...cssVars, minHeight: '100vh', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
       {!user && <Login onLogin={handleLogin} />}
       {user?.role === 'admin' && (
         <AdminDashboard user={user} onLogout={handleLogout} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
