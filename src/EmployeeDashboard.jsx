@@ -706,7 +706,6 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                 </div>
               )}
             </div>
-          </div>
 
             {/* Weekly attendance history */}
             <div style={card}>
