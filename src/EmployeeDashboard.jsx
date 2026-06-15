@@ -707,6 +707,77 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
               )}
             </div>
           </div>
+
+            {/* Weekly attendance history */}
+            <div style={card}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>This Week's Attendance</h3>
+              {(() => {
+                const weekStart = new Date(getCurrentWeekStart())
+                return DAYS.map((dayName, i) => {
+                  const date = new Date(weekStart)
+                  date.setDate(date.getDate() + i)
+                  const dateStr = date.toISOString().split('T')[0]
+                  const record = weekAttendance.find(a => a.date === dateStr)
+                  const isToday = dateStr === new Date().toISOString().split('T')[0]
+
+                  let workedMins = 0
+                  if (record?.check_in && record?.check_out) {
+                    const [inH, inM] = record.check_in.split(':').map(Number)
+                    const [outH, outM] = record.check_out.split(':').map(Number)
+                    workedMins = (outH * 60 + outM) - (inH * 60 + inM)
+                    if (workedMins < 0) workedMins += 24 * 60
+                  }
+
+                  return (
+                    <div key={dayName} style={{
+                      display: 'flex', alignItems: 'center',
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      marginBottom: 4,
+                      background: isToday ? '#edf8ee' : 'var(--raised)',
+                      border: `1px solid ${isToday ? '#bbdfc0' : 'var(--border-soft)'}`,
+                    }}>
+                      <div style={{ width: 80 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: isToday ? '#44ab51' : 'var(--text)' }}>
+                          {dayName.slice(0, 3)}
+                          {isToday && <span style={{ fontSize: 10, fontWeight: 600, color: '#44ab51', marginLeft: 5 }}>Today</span>}
+                        </p>
+                        <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 1 }}>
+                          {date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        </p>
+                      </div>
+                      {record ? (
+                        <>
+                          <div style={{ flex: 1, display: 'flex', gap: 20 }}>
+                            <div>
+                              <p style={{ fontSize: 10, color: 'var(--text4)', marginBottom: 2 }}>In</p>
+                              <p style={{ fontSize: 14, fontWeight: 700, color: '#44ab51' }}>{record.check_in || '—'}</p>
+                            </div>
+                            <div>
+                              <p style={{ fontSize: 10, color: 'var(--text4)', marginBottom: 2 }}>Out</p>
+                              <p style={{ fontSize: 14, fontWeight: 700, color: record.check_out ? '#44ab51' : 'var(--text4)' }}>
+                                {record.check_out || '—'}
+                              </p>
+                            </div>
+                          </div>
+                          {workedMins > 0 && (
+                            <p style={{ fontSize: 13, color: '#44ab51', fontWeight: 700 }}>
+                              {Math.round(workedMins / 60 * 10) / 10}h
+                            </p>
+                          )}
+                          {record.check_in && !record.check_out && (
+                            <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, background: '#fef3c7', padding: '2px 8px', borderRadius: 6 }}>Active</span>
+                          )}
+                        </>
+                      ) : (
+                        <p style={{ fontSize: 13, color: 'var(--text4)', flex: 1 }}>—</p>
+                      )}
+                    </div>
+                  )
+                })
+              })()}
+            </div>
+          </div>
         )}
 
         {/* ── Availability Tab ── */}
