@@ -921,6 +921,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                   </div>
                 </>
               )}
+
             </div>
 
             {/* Manual request card — only when off WiFi and shift not done */}
