@@ -506,7 +506,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
   const handleManualCheckOut = async () => {
     setManualOutLoading(true)
-    const now = new Date().toTimeString().slice(0, 5)
+    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' })
     const dateLabel = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })
     await supabase.from('handover').insert({
       task: `⚠️ Manual check-out request — ${user.name}, ${dateLabel} at ${now}${manualOutNote.trim() ? `: "${manualOutNote.trim()}"` : ''}`,
@@ -521,7 +521,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
   const handleManualCheckIn = async () => {
     setManualLoading(true)
-    const now = new Date().toTimeString().slice(0, 5)
+    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' })
     const dateLabel = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })
     await supabase.from('handover').insert({
       task: `⚠️ Manual check-in request — ${user.name}, ${dateLabel} at ${now}${manualNote.trim() ? `: "${manualNote.trim()}"` : ''}`,
