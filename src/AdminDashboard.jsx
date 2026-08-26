@@ -7,6 +7,35 @@ const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '1
 const HOURS_LATE = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30']
 const TODAY = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
 
+// Attendance is keyed by the restaurant's operating day, not the admin's
+// calendar day. Shifts run past midnight (last slot 03:30), so anything before
+// 05:00 Amsterdam time still belongs to the previous day. Must stay in sync
+// with supabase/functions/check-in/index.ts, which writes these rows.
+const TZ = 'Europe/Amsterdam'
+const OPERATING_DAY_START_HOUR = 5
+
+const localParts = (d = new Date()) => {
+  const parts = {}
+  for (const { type, value } of new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d)) parts[type] = value
+  return parts
+}
+
+const localTime = (d = new Date()) => {
+  const p = localParts(d)
+  return `${p.hour}:${p.minute}`
+}
+
+const operatingDate = (d = new Date()) => {
+  const p = localParts(d)
+  const day = new Date(`${p.year}-${p.month}-${p.day}T00:00:00Z`)
+  if (Number(p.hour) < OPERATING_DAY_START_HOUR) day.setUTCDate(day.getUTCDate() - 1)
+  return day.toISOString().split('T')[0]
+}
+
 const getShiftColor = (startTime) => {
   const colors = {
     '11:00': '#4CAF50', '11:30': '#4CAF50',
@@ -724,8 +753,8 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
                   const isManual = task.task.includes('check-in request') || task.task.includes('check-out request')
                   const isApproving = approvingTask?.task?.id === task.id
                   const timeMatch = task.task.match(/at (\d{2}:\d{2})/)
-                  const suggestedTime = timeMatch ? timeMatch[1] : new Date().toTimeString().slice(0, 5)
-                  const taskDate = new Date(task.created_at).toISOString().split('T')[0]
+                  const suggestedTime = timeMatch ? timeMatch[1] : localTime(new Date(task.created_at))
+                  const taskDate = operatingDate(new Date(task.created_at))
                   return (
                   <div key={task.id} style={{ borderBottom: '1px solid var(--border-table)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0' }}>
