@@ -30,6 +30,40 @@ const getShiftColor = (startTime) => {
   return colors[startTime] || '#44ab51'
 }
 
+// Attendance is keyed by the restaurant's operating day, not the viewer's
+// calendar day. Shifts run past midnight (last slot 03:30), so anything before
+// 05:00 Amsterdam time still belongs to the previous day. Must stay in sync
+// with supabase/functions/check-in/index.ts, which writes these rows.
+const TZ = 'Europe/Amsterdam'
+const OPERATING_DAY_START_HOUR = 5
+
+const localParts = (d = new Date()) => {
+  const parts = {}
+  for (const { type, value } of new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d)) parts[type] = value
+  return parts
+}
+
+const localTime = (d = new Date()) => {
+  const p = localParts(d)
+  return `${p.hour}:${p.minute}`
+}
+
+const operatingDate = (d = new Date()) => {
+  const p = localParts(d)
+  const day = new Date(`${p.year}-${p.month}-${p.day}T00:00:00Z`)
+  if (Number(p.hour) < OPERATING_DAY_START_HOUR) day.setUTCDate(day.getUTCDate() - 1)
+  return day.toISOString().split('T')[0]
+}
+
+const operatingDateLabel = (d = new Date()) =>
+  new Date(`${operatingDate(d)}T12:00:00Z`).toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC',
+  })
+
 const getCurrentWeekStart = () => {
   const d = new Date()
   const day = d.getDay()
@@ -363,7 +397,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
   const fetchData = async () => {
     setLoading(true)
-    const today = new Date().toISOString().split('T')[0]
+    const today = operatingDate()
 
     const [
       { data: prefData },
@@ -506,8 +540,8 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
   const handleManualCheckOut = async () => {
     setManualOutLoading(true)
-    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' })
-    const dateLabel = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })
+    const now = localTime()
+    const dateLabel = operatingDateLabel()
     await supabase.from('handover').insert({
       task: `⚠️ Manual check-out request — ${user.name}, ${dateLabel} at ${now}${manualOutNote.trim() ? `: "${manualOutNote.trim()}"` : ''}`,
       added_by: user.id,
@@ -521,8 +555,8 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
   const handleManualCheckIn = async () => {
     setManualLoading(true)
-    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' })
-    const dateLabel = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })
+    const now = localTime()
+    const dateLabel = operatingDateLabel()
     await supabase.from('handover').insert({
       task: `⚠️ Manual check-in request — ${user.name}, ${dateLabel} at ${now}${manualNote.trim() ? `: "${manualNote.trim()}"` : ''}`,
       added_by: user.id,
@@ -967,7 +1001,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                   date.setDate(date.getDate() + i)
                   const dateStr = date.toISOString().split('T')[0]
                   const record = weekAttendance.find(a => a.date === dateStr)
-                  const isToday = dateStr === new Date().toISOString().split('T')[0]
+                  const isToday = dateStr === operatingDate()
 
                   let workedMins = 0
                   if (record?.check_in && record?.check_out) {
