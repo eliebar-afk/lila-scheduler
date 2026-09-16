@@ -64,13 +64,22 @@ const operatingDateLabel = (d = new Date()) =>
     weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC',
   })
 
-const getCurrentWeekStart = () => {
-  const d = new Date()
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  d.setDate(diff)
+// Monday of the week containing an ISO date string. Pure UTC arithmetic on a
+// date-only value, so the result never drifts a day with the viewer's offset.
+const weekStartOf = (dateStr) => {
+  const d = new Date(`${dateStr}T00:00:00Z`)
+  const day = d.getUTCDay()
+  d.setUTCDate(d.getUTCDate() - (day === 0 ? 6 : day - 1))
   return d.toISOString().split('T')[0]
 }
+
+// Based on the operating day, so a 02:00 check-out still counts as the shift's
+// week rather than rolling the employee into the next one.
+const getCurrentWeekStart = () => weekStartOf(operatingDate())
+
+// Hours are summed at full precision and rounded only here, so a week's total
+// can never drift from the sum of the days shown under it.
+const fmtHours = (h) => h.toFixed(2)
 
 const getWeekNumber = (dateStr) => {
   const d = dateStr ? new Date(dateStr) : new Date()
@@ -122,7 +131,7 @@ const weekSelectStyle = {
   cursor: 'pointer',
 }
 
-function AnimatedNumber({ value }) {
+function AnimatedNumber({ value, decimals = 2 }) {
   const [display, setDisplay] = useState(0)
   const rafRef = useRef(null)
   useEffect(() => {
@@ -132,7 +141,7 @@ function AnimatedNumber({ value }) {
       const elapsed = Date.now() - startTime
       const progress = Math.min(elapsed / duration, 1)
       const eased = 1 - Math.pow(1 - progress, 3)
-      setDisplay(Math.round(value * eased * 10) / 10)
+      setDisplay(value * eased)
       if (progress < 1) {
         rafRef.current = requestAnimationFrame(tick)
       } else {
@@ -142,7 +151,7 @@ function AnimatedNumber({ value }) {
     rafRef.current = requestAnimationFrame(tick)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
   }, [value])
-  return <>{display}</>
+  return <>{display.toFixed(decimals)}</>
 }
 
 function Toast({ msg, type }) {
@@ -341,6 +350,10 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
         fetchMyWeekData(viewingWeekRef.current)
         fetchWeekOptions()
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
+        fetchMyWeekData(viewingWeekRef.current)
+        fetchWeekOptions()
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'handover' }, fetchHandover)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, fetchData)
       .subscribe()
@@ -383,16 +396,22 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
     if (attData) setWeekAttendance(attData)
   }
 
+  // Weeks worth offering come from two places: weeks with a published schedule,
+  // and weeks this employee actually clocked hours in. The second half matters
+  // for weeks that were never scheduled — without it those hours are
+  // unreachable, since the dropdown was the only way to reach a past week.
   const fetchWeekOptions = async () => {
-    const { data } = await supabase
-      .from('shifts')
-      .select('week_start')
-      .eq('published', true)
-      .order('week_start', { ascending: false })
-    if (data) {
-      const unique = [...new Set(data.map(w => w.week_start).filter(Boolean))]
-      setWeekOptions(unique)
-    }
+    const [{ data: shiftWeeks }, { data: attDates }] = await Promise.all([
+      supabase.from('shifts').select('week_start').eq('published', true),
+      supabase.from('attendance').select('date').eq('employee_id', user.id),
+    ])
+
+    const weeks = new Set()
+    shiftWeeks?.forEach(s => { if (s.week_start) weeks.add(s.week_start) })
+    attDates?.forEach(a => { if (a.date) weeks.add(weekStartOf(a.date)) })
+    weeks.delete(getCurrentWeekStart()) // already offered as "This Week"
+
+    setWeekOptions([...weeks].sort().reverse())
   }
 
   const fetchData = async () => {
@@ -590,6 +609,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
   }
 
   const isOnRestaurantWifi = userIp === RESTAURANT_IP
+  const viewedWeekStart = viewingWeek || getCurrentWeekStart()
 
   const scheduledHours = myWeekShifts.reduce((sum, s) => {
     if (!s.start_time || !s.end_time) return sum
@@ -597,7 +617,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
     const [outH, outM] = s.end_time.split(':').map(Number)
     let mins = (outH * 60 + outM) - (inH * 60 + inM)
     if (mins < 0) mins += 24 * 60
-    return sum + Math.round(mins / 60 * 10) / 10
+    return sum + mins / 60
   }, 0)
 
   const workedHours = weekAttendance.reduce((sum, a) => {
@@ -606,7 +626,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
     const [outH, outM] = a.check_out.split(':').map(Number)
     let mins = (outH * 60 + outM) - (inH * 60 + inM)
     if (mins < 0) mins += 24 * 60
-    return sum + Math.round(mins / 60 * 10) / 10
+    return sum + mins / 60
   }, 0)
 
   const todayShift = myWeekShifts.find(s => s.day === TODAY)
@@ -844,6 +864,12 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                   ))}
                 </tbody>
               </table>
+
+              {schedule.length === 0 && (
+                <p style={{ fontSize: 12, color: 'var(--text4)', textAlign: 'center', padding: '14px 0 4px', fontWeight: 500 }}>
+                  No schedule was published for this week — your logged hours are still below.
+                </p>
+              )}
             </div>
 
             {/* Handover preview */}
@@ -993,12 +1019,13 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
             {/* Weekly attendance history */}
             <div style={card}>
-              <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 14, letterSpacing: '-0.2px' }}>This Week's Attendance</h3>
+              <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 14, letterSpacing: '-0.2px' }}>
+                {viewingWeek ? `Week ${getWeekNumber(viewingWeek)} Attendance` : "This Week's Attendance"}
+              </h3>
               {(() => {
-                const weekStart = new Date(getCurrentWeekStart())
                 return DAYS.map((dayName, i) => {
-                  const date = new Date(weekStart)
-                  date.setDate(date.getDate() + i)
+                  const date = new Date(`${viewedWeekStart}T00:00:00Z`)
+                  date.setUTCDate(date.getUTCDate() + i)
                   const dateStr = date.toISOString().split('T')[0]
                   const record = weekAttendance.find(a => a.date === dateStr)
                   const isToday = dateStr === operatingDate()
@@ -1024,7 +1051,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                           {isToday && <span style={{ fontSize: 10, fontWeight: 600, color: '#44ab51', marginLeft: 5 }}>Today</span>}
                         </p>
                         <p style={{ fontSize: 11, color: 'var(--text4)', marginTop: 1, fontWeight: 500 }}>
-                          {date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          {date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}
                         </p>
                       </div>
                       {record ? (
@@ -1043,7 +1070,7 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
                           </div>
                           {workedMins > 0 && (
                             <p style={{ fontSize: 13, color: '#44ab51', fontWeight: 800 }}>
-                              {Math.round(workedMins / 60 * 10) / 10}h
+                              {fmtHours(workedMins / 60)}h
                             </p>
                           )}
                           {record.check_in && !record.check_out && (

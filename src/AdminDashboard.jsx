@@ -36,6 +36,10 @@ const operatingDate = (d = new Date()) => {
   return day.toISOString().split('T')[0]
 }
 
+// Hours are summed at full precision and rounded only here, so a total can
+// never drift from the sum of the rows shown under it.
+const fmtHours = (h) => h.toFixed(2)
+
 const getShiftColor = (startTime) => {
   const colors = {
     '11:00': '#4CAF50', '11:30': '#4CAF50',
@@ -984,7 +988,7 @@ function AttendanceReport({ employees, supabase, shifts }) {
     const [outH, outM] = checkOut.split(':').map(Number)
     let mins = (outH * 60 + outM) - (inH * 60 + inM)
     if (mins < 0) mins += 24 * 60
-    return Math.round(mins / 60 * 10) / 10
+    return mins / 60
   }
 
   const calcScheduledHours = (startTime, endTime) => {
@@ -993,7 +997,7 @@ function AttendanceReport({ employees, supabase, shifts }) {
     const [outH, outM] = endTime.split(':').map(Number)
     let mins = (outH * 60 + outM) - (inH * 60 + inM)
     if (mins < 0) mins += 24 * 60
-    return Math.round(mins / 60 * 10) / 10
+    return mins / 60
   }
 
   const getEmployeeData = (employeeId) => {
@@ -1001,13 +1005,15 @@ function AttendanceReport({ employees, supabase, shifts }) {
     const empShifts = shifts.filter(s => s.employee_id === employeeId)
     const actualHours = empRecords.reduce((sum, r) => sum + calcHours(r.check_in, r.check_out), 0)
     const scheduledHours = empShifts.reduce((sum, s) => sum + calcScheduledHours(s.start_time, s.end_time), 0)
-    const diff = Math.round((actualHours - scheduledHours) * 10) / 10
+    // Rounded here, not just at display: the colour below branches on === 0,
+    // which float residue from summing sixtieths would otherwise defeat.
+    const diff = Math.round((actualHours - scheduledHours) * 100) / 100
     return { actualHours, scheduledHours, diff, records: empRecords }
   }
 
   const totalScheduled = employees.reduce((sum, emp) => sum + getEmployeeData(emp.id).scheduledHours, 0)
   const totalWorked = employees.reduce((sum, emp) => sum + getEmployeeData(emp.id).actualHours, 0)
-  const totalDiff = Math.round((totalWorked - totalScheduled) * 10) / 10
+  const totalDiff = Math.round((totalWorked - totalScheduled) * 100) / 100
 
   const weekOptions = getWeekOptions()
   const monthOptions = getMonthOptions()
@@ -1051,9 +1057,9 @@ function AttendanceReport({ employees, supabase, shifts }) {
         <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Team Totals</h2>
         <div style={{ display: 'flex', gap: 10 }}>
           {[
-            { label: 'Total Scheduled', value: `${totalScheduled} hrs`, bg: '#f8f9fa', color: 'var(--text2)' },
-            { label: 'Total Worked', value: `${totalWorked} hrs`, bg: '#edf8ee', color: '#44ab51' },
-            { label: 'Difference', value: `${totalDiff > 0 ? '+' : ''}${totalDiff} hrs`, bg: totalDiff === 0 ? '#edf8ee' : totalDiff > 0 ? '#fffbeb' : '#fef2f2', color: totalDiff === 0 ? '#44ab51' : totalDiff > 0 ? '#d97706' : '#dc2626' },
+            { label: 'Total Scheduled', value: `${fmtHours(totalScheduled)} hrs`, bg: '#f8f9fa', color: 'var(--text2)' },
+            { label: 'Total Worked', value: `${fmtHours(totalWorked)} hrs`, bg: '#edf8ee', color: '#44ab51' },
+            { label: 'Difference', value: `${totalDiff > 0 ? '+' : ''}${fmtHours(totalDiff)} hrs`, bg: totalDiff === 0 ? '#edf8ee' : totalDiff > 0 ? '#fffbeb' : '#fef2f2', color: totalDiff === 0 ? '#44ab51' : totalDiff > 0 ? '#d97706' : '#dc2626' },
           ].map(({ label, value, bg, color }) => (
             <div key={label} style={{ flex: 1, background: bg, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
               <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 4 }}>{label}</p>
@@ -1097,15 +1103,15 @@ function AttendanceReport({ employees, supabase, shifts }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{emp.name}</span>
               <span style={{ background: '#edf8ee', color: '#44ab51', fontWeight: 700, padding: '4px 12px', borderRadius: 20, fontSize: 13 }}>
-                {actualHours} hrs worked
+                {fmtHours(actualHours)} hrs worked
               </span>
             </div>
             {showComparison && (
               <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                 {[
-                  { label: 'Scheduled', value: `${scheduledHours} hrs`, bg: '#f8f9fa', color: 'var(--text2)' },
-                  { label: 'Actual', value: `${actualHours} hrs`, bg: '#f8f9fa', color: '#44ab51' },
-                  { label: 'Difference', value: `${diff > 0 ? '+' : ''}${diff} hrs`, bg: diff === 0 ? '#edf8ee' : diff > 0 ? '#fffbeb' : '#fef2f2', color: diff === 0 ? '#44ab51' : diff > 0 ? '#d97706' : '#dc2626' },
+                  { label: 'Scheduled', value: `${fmtHours(scheduledHours)} hrs`, bg: '#f8f9fa', color: 'var(--text2)' },
+                  { label: 'Actual', value: `${fmtHours(actualHours)} hrs`, bg: '#f8f9fa', color: '#44ab51' },
+                  { label: 'Difference', value: `${diff > 0 ? '+' : ''}${fmtHours(diff)} hrs`, bg: diff === 0 ? '#edf8ee' : diff > 0 ? '#fffbeb' : '#fef2f2', color: diff === 0 ? '#44ab51' : diff > 0 ? '#d97706' : '#dc2626' },
                 ].map(({ label, value, bg, color }) => (
                   <div key={label} style={{ flex: 1, background: bg, borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
                     <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 2 }}>{label}</p>
@@ -1182,8 +1188,8 @@ function AttendanceRow({ record, supabase, onUpdate }) {
             const [outH, outM] = record.check_out.split(':').map(Number)
             let mins = (outH * 60 + outM) - (inH * 60 + inM)
             if (mins < 0) mins += 24 * 60
-            return Math.round(mins / 60 * 10) / 10
-          })() : 0} hrs
+            return fmtHours(mins / 60)
+          })() : fmtHours(0)} hrs
         </span>
         <button onClick={() => setEditing(true)} style={{ background: '#f1f5f9', color: '#475569', padding: '4px 10px', fontSize: 12, borderRadius: 7, fontWeight: 600 }}>✏️ Edit</button>
       </div>
