@@ -6,6 +6,7 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30']
 const HOURS_LATE = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30']
 const TODAY = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
+const [pdfImportResult, setPdfImportResult] = useState(null)
 
 // Attendance is keyed by the restaurant's operating day, not the admin's
 // calendar day. Shifts run past midnight (last slot 03:30), so anything before
@@ -394,6 +395,145 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
     fetchAll(viewingWeek)
   }
 
+  const handlePdfImport = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const pdfjsLib = await import('pdfjs-dist')
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+      let fullText = ''
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i)
+        const content = await page.getTextContent()
+        fullText += content.items.map(item => item.str).join(' ') + '\n'
+      }
+
+      const result = parseSchedulePdf(fullText)
+      if (result.shifts.length === 0) {
+        alert('No shifts found in PDF. Please check the file format.')
+        return
+      }
+
+      const weekStart = result.weekStart || getSchedulingWeek()
+      await supabase.from('shifts').delete().eq('week_start', weekStart).eq('published', false)
+
+      const errors = []
+      const rows = []
+      for (const shift of result.shifts) {
+        const emp = [...employees, ...extraEmployees].find(e =>
+          e.name.toLowerCase().trim() === shift.employeeName.toLowerCase().trim()
+        )
+        if (!emp) {
+          errors.push(`"${shift.employeeName}" not found in app — skipped`)
+          continue
+        }
+        rows.push({
+          employee_id: emp.id,
+          day: shift.day,
+          start_time: shift.startTime,
+          end_time: shift.endTime,
+          published: false,
+          week_start: weekStart
+        })
+      }
+
+      if (rows.length > 0) await supabase.from('shifts').insert(rows)
+      setPdfImportResult({ imported: rows.length, errors })
+      fetchAll(weekStart)
+    } catch (err) {
+      console.error('PDF import error:', err)
+      alert('Failed to read PDF. Please try again.')
+    }
+    e.target.value = ''
+  }
+
+  const parseSchedulePdf = (text) => {
+    const shifts = []
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+    const to24h = (timeStr) => {
+      const match = timeStr.match(/(\d+):(\d+)(am|pm)/i)
+      if (!match) return null
+      let [, h, m, period] = match
+      h = parseInt(h)
+      m = m.padStart(2, '0')
+      if (period.toLowerCase() === 'pm' && h !== 12) h += 12
+      if (period.toLowerCase() === 'am' && h === 12) h = 0
+      return `${String(h).padStart(2, '0')}:${m}`
+    }
+
+    // Extract week start from date in PDF
+    let weekStart = null
+    const dateMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+    if (dateMatch) {
+      const [, month, day, year] = dateMatch
+      const d = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
+      const dayOfWeek = d.getDay()
+      const diff = d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
+      d.setDate(diff)
+      weekStart = d.toISOString().split('T')[0]
+    }
+
+    // Build a map of day names to index from PDF header
+    // The PDF has date columns like "Monday 09/21/2026"
+    // We parse employee rows: name then time slots per day
+    const allEmps = [...employees, ...extraEmployees]
+    
+    // Split into tokens
+    const tokens = text.split(/\s+/).filter(Boolean)
+    
+    let currentEmployee = null
+    let dayIndex = 0
+    let i = 0
+
+    while (i < tokens.length) {
+      const token = tokens[i]
+
+      // Skip date patterns
+      if (token.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) { i++; continue }
+
+      // Skip day names in header
+      if (days.some(d => token === d)) { i++; continue }
+
+      // Check for time range like 6:00pm-3:00am
+      const timeMatch = token.match(/^(\d+:\d+(?:am|pm))-(\d+:\d+(?:am|pm))$/i)
+      if (timeMatch && currentEmployee) {
+        const startTime = to24h(timeMatch[1])
+        const endTime = to24h(timeMatch[2])
+        if (startTime && endTime && dayIndex < days.length) {
+          shifts.push({
+            employeeName: currentEmployee,
+            day: days[dayIndex],
+            startTime,
+            endTime
+          })
+        }
+        dayIndex++
+        i++
+        continue
+      }
+
+      // Try to match employee name (1 or 2 words)
+      let matched = false
+      for (const emp of allEmps) {
+        const parts = emp.name.trim().split(/\s+/)
+        const slice = tokens.slice(i, i + parts.length).join(' ')
+        if (slice.toLowerCase() === emp.name.toLowerCase()) {
+          currentEmployee = emp.name
+          dayIndex = 0
+          i += parts.length
+          matched = true
+          break
+        }
+      }
+      if (!matched) i++
+    }
+
+    return { shifts, weekStart }
+  }
+
   const getShift = (employeeId, day) => shifts.find(s => s.employee_id === employeeId && s.day === day)
   const getPref = (employeeId, day) => preferences.find(p => p.employee_id === employeeId && p.day === day)
 
@@ -492,7 +632,22 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
                 <button onClick={publishSchedule} style={{ ...btnPrimary, background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', boxShadow: '0 4px 12px rgba(59,130,246,0.35)' }}>
                   🚀 Publish Schedule
                 </button>
+                <label style={{ ...btnPrimary, background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)', boxShadow: '0 4px 12px rgba(124,58,237,0.35)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  📄 Import PDF
+                  <input type="file" accept=".pdf" onChange={handlePdfImport} style={{ display: 'none' }} />
+                </label>
               </div>
+              {pdfImportResult && (
+                <div style={{ marginTop: 16, padding: 14, background: pdfImportResult.errors.length > 0 ? '#fffbeb' : '#edf8ee', borderRadius: 10, border: `1px solid ${pdfImportResult.errors.length > 0 ? '#fde68a' : '#bbdfc0'}` }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: pdfImportResult.errors.length > 0 ? '#92400e' : '#166534' }}>
+                    {pdfImportResult.errors.length > 0 ? '⚠️ Import completed with warnings' : '✅ Schedule imported successfully!'}
+                  </p>
+                  <p style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>✓ {pdfImportResult.imported} shifts imported</p>
+                  {pdfImportResult.errors.map((e, i) => (
+                    <p key={i} style={{ fontSize: 13, color: '#92400e', marginBottom: 2 }}>⚠️ {e}</p>
+                  ))}
+                </div>
+              )}
               {scheduleWarnings.length > 0 && (
                 <div style={{ marginTop: 16, padding: 14, background: '#fffbeb', borderRadius: 10, border: '1px solid #fde68a' }}>
                   <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: '#92400e' }}>⚠️ Staffing Gaps Detected</p>
