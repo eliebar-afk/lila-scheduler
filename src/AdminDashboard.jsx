@@ -36,6 +36,19 @@ const operatingDate = (d = new Date()) => {
   return day.toISOString().split('T')[0]
 }
 
+// Monday of the week containing an ISO date string. Pure UTC arithmetic on a
+// date-only value, so the result never drifts a day with the viewer's offset.
+const weekStartOf = (dateStr) => {
+  const d = new Date(`${dateStr}T00:00:00Z`)
+  const day = d.getUTCDay()
+  d.setUTCDate(d.getUTCDate() - (day === 0 ? 6 : day - 1))
+  return d.toISOString().split('T')[0]
+}
+
+// Hours are summed at full precision and rounded only here, so a total can
+// never drift from the sum of the rows shown under it.
+const fmtHours = (h) => h.toFixed(2)
+
 const getShiftColor = (startTime) => {
   const colors = {
     '11:00': '#4CAF50', '11:30': '#4CAF50',
@@ -123,6 +136,7 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
   const [viewingWeek, setViewingWeek] = useState(null)
   const [weekOptions, setWeekOptions] = useState([])
   const [handoverTasks, setHandoverTasks] = useState([])
+  const [pdfImportResult, setPdfImportResult] = useState(null)
   const [approvingTask, setApprovingTask] = useState(null) // { task, time, date }
 
   const getCurrentWeekStart = () => {
@@ -390,6 +404,176 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
     fetchAll(viewingWeek)
   }
 
+  // The PDF is a grid: a row per employee, a column per day. Text extraction
+  // flattens it to a stream of items, so day alignment has to come from each
+  // cell's x position. Counting tokens instead puts an employee's first shift
+  // on Monday no matter which day it actually sits under -- for someone who
+  // only works Friday and Saturday, every shift lands on the wrong day.
+  const handlePdfImport = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setPdfImportResult(null)
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const pdfjsLib = await import('pdfjs-dist')
+      // Worker is bundled by Vite rather than pulled from a CDN: pdfjs v6 ships
+      // it as .mjs (the old .min.js path 404s), and a CDN also means the import
+      // breaks whenever the pinned version and the CDN's copy drift apart.
+      const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
+      pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+
+      const items = []
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p)
+        const content = await page.getTextContent()
+        for (const it of content.items) {
+          if (!it.str || !it.str.trim()) continue
+          items.push({
+            str: it.str.trim(),
+            x: it.transform[4],
+            // Offset per page, or rows on page 2 would cluster with page 1.
+            y: it.transform[5] - (p - 1) * 100000,
+            w: it.width || 0,
+          })
+        }
+      }
+
+      const result = parseSchedulePdf(items)
+      if (result.error) {
+        alert(result.error)
+        return
+      }
+      if (result.shifts.length === 0) {
+        alert('No shifts found in PDF. Please check the file format.')
+        return
+      }
+
+      const weekStart = result.weekStart || getSchedulingWeek()
+      await supabase.from('shifts').delete().eq('week_start', weekStart).eq('published', false)
+
+      const allEmps = [...employees, ...extraEmployees]
+      const errors = []
+      const rows = []
+      for (const shift of result.shifts) {
+        const emp = allEmps.find(emp2 =>
+          emp2.name.toLowerCase().trim() === shift.employeeName.toLowerCase().trim()
+        )
+        if (!emp) {
+          // One warning per unknown name, not one per shift they appear in.
+          const msg = `"${shift.employeeName}" not found in app -- skipped`
+          if (!errors.includes(msg)) errors.push(msg)
+          continue
+        }
+        rows.push({
+          employee_id: emp.id,
+          day: shift.day,
+          start_time: shift.startTime,
+          end_time: shift.endTime,
+          published: false,
+          week_start: weekStart
+        })
+      }
+
+      if (rows.length > 0) await supabase.from('shifts').insert(rows)
+      setPdfImportResult({ imported: rows.length, errors })
+      // Jump the view to the imported week, otherwise the fetch below loads a
+      // week the selector is not pointing at.
+      setViewingWeek(weekStart)
+      fetchAll(weekStart)
+    } catch (err) {
+      console.error('PDF import error:', err)
+      alert('Failed to read PDF. Please try again.')
+    }
+    e.target.value = ''
+  }
+
+  const parseSchedulePdf = (items) => {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    const TIME_RANGE = /(\d{1,2}):(\d{2})\s*(am|pm)\s*[-‐-―]\s*(\d{1,2}):(\d{2})\s*(am|pm)/gi
+    const centre = (it) => it.x + it.w / 2
+
+    const to24h = (h, m, period) => {
+      let hour = parseInt(h, 10)
+      if (period.toLowerCase() === 'pm' && hour !== 12) hour += 12
+      if (period.toLowerCase() === 'am' && hour === 12) hour = 0
+      return `${String(hour).padStart(2, '0')}:${m.padStart(2, '0')}`
+    }
+
+    // Column positions come from the header cells.
+    const dayCols = []
+    for (const day of days) {
+      const hit = items.find(it => it.str.toLowerCase() === day.toLowerCase())
+      if (hit) dayCols.push({ day, cx: centre(hit) })
+    }
+    if (dayCols.length === 0) {
+      return { shifts: [], weekStart: null, error: 'Could not find the day columns (Monday-Sunday) in this PDF.' }
+    }
+    dayCols.sort((a, b) => a.cx - b.cx)
+
+    const colWidth = dayCols.length > 1
+      ? (dayCols[dayCols.length - 1].cx - dayCols[0].cx) / (dayCols.length - 1)
+      : Infinity
+    // Anything left of the first column is the employee-name cell.
+    const nameEdge = dayCols[0].cx - colWidth / 2
+
+    // Week start from the date under the leftmost day column, normalised to its
+    // Monday in case the grid does not begin on one.
+    let weekStart = null
+    const dateItems = items.filter(it => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(it.str))
+    if (dateItems.length > 0) {
+      const nearest = dateItems.reduce((best, it) =>
+        Math.abs(centre(it) - dayCols[0].cx) < Math.abs(centre(best) - dayCols[0].cx) ? it : best)
+      const [mm, dd, yyyy] = nearest.str.split('/')
+      weekStart = weekStartOf(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`)
+    }
+
+    // Cluster into rows by baseline: a name and its times can sit a point apart.
+    const rows = []
+    for (const it of [...items].sort((a, b) => b.y - a.y)) {
+      const row = rows.find(r => Math.abs(r.y - it.y) <= 6)
+      if (row) row.items.push(it)
+      else rows.push({ y: it.y, items: [it] })
+    }
+
+    const shifts = []
+    for (const row of rows) {
+      const nameItems = row.items.filter(it => centre(it) < nameEdge).sort((a, b) => a.x - b.x)
+      // The header and date rows carry no name cell, so they drop out here.
+      if (nameItems.length === 0) continue
+      const employeeName = nameItems.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim()
+
+      // Bucket by nearest column, joining each cell's items before matching in
+      // case a range is split across several of them.
+      const cells = new Map()
+      for (const it of row.items) {
+        if (centre(it) < nameEdge) continue
+        let best = null
+        for (let i = 0; i < dayCols.length; i++) {
+          const dist = Math.abs(centre(it) - dayCols[i].cx)
+          if (dist <= colWidth / 2 && (best === null || dist < best.dist)) best = { i, dist }
+        }
+        if (best === null) continue
+        if (!cells.has(best.i)) cells.set(best.i, [])
+        cells.get(best.i).push(it)
+      }
+
+      for (const [colIndex, cellItems] of cells) {
+        const text = cellItems.sort((a, b) => a.x - b.x).map(it => it.str).join('')
+        for (const m of text.matchAll(TIME_RANGE)) {
+          shifts.push({
+            employeeName,
+            day: dayCols[colIndex].day,
+            startTime: to24h(m[1], m[2], m[3]),
+            endTime: to24h(m[4], m[5], m[6])
+          })
+        }
+      }
+    }
+
+    return { shifts, weekStart }
+  }
+
   const getShift = (employeeId, day) => shifts.find(s => s.employee_id === employeeId && s.day === day)
   const getPref = (employeeId, day) => preferences.find(p => p.employee_id === employeeId && p.day === day)
 
@@ -488,7 +672,22 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
                 <button onClick={publishSchedule} style={{ ...btnPrimary, background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', boxShadow: '0 4px 12px rgba(59,130,246,0.35)' }}>
                   🚀 Publish Schedule
                 </button>
+                <label style={{ ...btnPrimary, background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)', boxShadow: '0 4px 12px rgba(124,58,237,0.35)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  📄 Import PDF
+                  <input type="file" accept=".pdf" onChange={handlePdfImport} style={{ display: 'none' }} />
+                </label>
               </div>
+              {pdfImportResult && (
+                <div style={{ marginTop: 16, padding: 14, background: pdfImportResult.errors.length > 0 ? '#fffbeb' : '#edf8ee', borderRadius: 10, border: `1px solid ${pdfImportResult.errors.length > 0 ? '#fde68a' : '#bbdfc0'}` }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: pdfImportResult.errors.length > 0 ? '#92400e' : '#166534' }}>
+                    {pdfImportResult.errors.length > 0 ? '⚠️ Import completed with warnings' : '✅ Schedule imported successfully!'}
+                  </p>
+                  <p style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>✓ {pdfImportResult.imported} shifts imported</p>
+                  {pdfImportResult.errors.map((e, i) => (
+                    <p key={i} style={{ fontSize: 13, color: '#92400e', marginBottom: 2 }}>⚠️ {e}</p>
+                  ))}
+                </div>
+              )}
               {scheduleWarnings.length > 0 && (
                 <div style={{ marginTop: 16, padding: 14, background: '#fffbeb', borderRadius: 10, border: '1px solid #fde68a' }}>
                   <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: '#92400e' }}>⚠️ Staffing Gaps Detected</p>
@@ -984,7 +1183,7 @@ function AttendanceReport({ employees, supabase, shifts }) {
     const [outH, outM] = checkOut.split(':').map(Number)
     let mins = (outH * 60 + outM) - (inH * 60 + inM)
     if (mins < 0) mins += 24 * 60
-    return Math.round(mins / 60 * 10) / 10
+    return mins / 60
   }
 
   const calcScheduledHours = (startTime, endTime) => {
@@ -993,7 +1192,7 @@ function AttendanceReport({ employees, supabase, shifts }) {
     const [outH, outM] = endTime.split(':').map(Number)
     let mins = (outH * 60 + outM) - (inH * 60 + inM)
     if (mins < 0) mins += 24 * 60
-    return Math.round(mins / 60 * 10) / 10
+    return mins / 60
   }
 
   const getEmployeeData = (employeeId) => {
@@ -1001,13 +1200,15 @@ function AttendanceReport({ employees, supabase, shifts }) {
     const empShifts = shifts.filter(s => s.employee_id === employeeId)
     const actualHours = empRecords.reduce((sum, r) => sum + calcHours(r.check_in, r.check_out), 0)
     const scheduledHours = empShifts.reduce((sum, s) => sum + calcScheduledHours(s.start_time, s.end_time), 0)
-    const diff = Math.round((actualHours - scheduledHours) * 10) / 10
+    // Rounded here, not just at display: the colour below branches on === 0,
+    // which float residue from summing sixtieths would otherwise defeat.
+    const diff = Math.round((actualHours - scheduledHours) * 100) / 100
     return { actualHours, scheduledHours, diff, records: empRecords }
   }
 
   const totalScheduled = employees.reduce((sum, emp) => sum + getEmployeeData(emp.id).scheduledHours, 0)
   const totalWorked = employees.reduce((sum, emp) => sum + getEmployeeData(emp.id).actualHours, 0)
-  const totalDiff = Math.round((totalWorked - totalScheduled) * 10) / 10
+  const totalDiff = Math.round((totalWorked - totalScheduled) * 100) / 100
 
   const weekOptions = getWeekOptions()
   const monthOptions = getMonthOptions()
@@ -1051,9 +1252,9 @@ function AttendanceReport({ employees, supabase, shifts }) {
         <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Team Totals</h2>
         <div style={{ display: 'flex', gap: 10 }}>
           {[
-            { label: 'Total Scheduled', value: `${totalScheduled} hrs`, bg: '#f8f9fa', color: 'var(--text2)' },
-            { label: 'Total Worked', value: `${totalWorked} hrs`, bg: '#edf8ee', color: '#44ab51' },
-            { label: 'Difference', value: `${totalDiff > 0 ? '+' : ''}${totalDiff} hrs`, bg: totalDiff === 0 ? '#edf8ee' : totalDiff > 0 ? '#fffbeb' : '#fef2f2', color: totalDiff === 0 ? '#44ab51' : totalDiff > 0 ? '#d97706' : '#dc2626' },
+            { label: 'Total Scheduled', value: `${fmtHours(totalScheduled)} hrs`, bg: '#f8f9fa', color: 'var(--text2)' },
+            { label: 'Total Worked', value: `${fmtHours(totalWorked)} hrs`, bg: '#edf8ee', color: '#44ab51' },
+            { label: 'Difference', value: `${totalDiff > 0 ? '+' : ''}${fmtHours(totalDiff)} hrs`, bg: totalDiff === 0 ? '#edf8ee' : totalDiff > 0 ? '#fffbeb' : '#fef2f2', color: totalDiff === 0 ? '#44ab51' : totalDiff > 0 ? '#d97706' : '#dc2626' },
           ].map(({ label, value, bg, color }) => (
             <div key={label} style={{ flex: 1, background: bg, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
               <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 4 }}>{label}</p>
@@ -1097,15 +1298,15 @@ function AttendanceReport({ employees, supabase, shifts }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{emp.name}</span>
               <span style={{ background: '#edf8ee', color: '#44ab51', fontWeight: 700, padding: '4px 12px', borderRadius: 20, fontSize: 13 }}>
-                {actualHours} hrs worked
+                {fmtHours(actualHours)} hrs worked
               </span>
             </div>
             {showComparison && (
               <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                 {[
-                  { label: 'Scheduled', value: `${scheduledHours} hrs`, bg: '#f8f9fa', color: 'var(--text2)' },
-                  { label: 'Actual', value: `${actualHours} hrs`, bg: '#f8f9fa', color: '#44ab51' },
-                  { label: 'Difference', value: `${diff > 0 ? '+' : ''}${diff} hrs`, bg: diff === 0 ? '#edf8ee' : diff > 0 ? '#fffbeb' : '#fef2f2', color: diff === 0 ? '#44ab51' : diff > 0 ? '#d97706' : '#dc2626' },
+                  { label: 'Scheduled', value: `${fmtHours(scheduledHours)} hrs`, bg: '#f8f9fa', color: 'var(--text2)' },
+                  { label: 'Actual', value: `${fmtHours(actualHours)} hrs`, bg: '#f8f9fa', color: '#44ab51' },
+                  { label: 'Difference', value: `${diff > 0 ? '+' : ''}${fmtHours(diff)} hrs`, bg: diff === 0 ? '#edf8ee' : diff > 0 ? '#fffbeb' : '#fef2f2', color: diff === 0 ? '#44ab51' : diff > 0 ? '#d97706' : '#dc2626' },
                 ].map(({ label, value, bg, color }) => (
                   <div key={label} style={{ flex: 1, background: bg, borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
                     <p style={{ fontSize: 11, color: 'var(--text4)', marginBottom: 2 }}>{label}</p>
@@ -1182,8 +1383,8 @@ function AttendanceRow({ record, supabase, onUpdate }) {
             const [outH, outM] = record.check_out.split(':').map(Number)
             let mins = (outH * 60 + outM) - (inH * 60 + inM)
             if (mins < 0) mins += 24 * 60
-            return Math.round(mins / 60 * 10) / 10
-          })() : 0} hrs
+            return fmtHours(mins / 60)
+          })() : fmtHours(0)} hrs
         </span>
         <button onClick={() => setEditing(true)} style={{ background: '#f1f5f9', color: '#475569', padding: '4px 10px', fontSize: 12, borderRadius: 7, fontWeight: 600 }}>✏️ Edit</button>
       </div>
