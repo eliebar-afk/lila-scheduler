@@ -401,7 +401,11 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
     try {
       const arrayBuffer = await file.arrayBuffer()
       const pdfjsLib = await import('pdfjs-dist')
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+      // Worker is bundled by Vite rather than pulled from a CDN: pdfjs v6 ships
+      // it as .mjs (the old .min.js path 404s), and a CDN also means the import
+      // breaks whenever the pinned version and the CDN's copy drift apart.
+      const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
+      pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
       let fullText = ''
       for (let i = 1; i <= pdf.numPages; i++) {
