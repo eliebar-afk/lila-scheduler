@@ -6,7 +6,6 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30']
 const HOURS_LATE = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30']
 const TODAY = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
-const [pdfImportResult, setPdfImportResult] = useState(null)
 
 // Attendance is keyed by the restaurant's operating day, not the admin's
 // calendar day. Shifts run past midnight (last slot 03:30), so anything before
@@ -35,6 +34,15 @@ const operatingDate = (d = new Date()) => {
   const day = new Date(`${p.year}-${p.month}-${p.day}T00:00:00Z`)
   if (Number(p.hour) < OPERATING_DAY_START_HOUR) day.setUTCDate(day.getUTCDate() - 1)
   return day.toISOString().split('T')[0]
+}
+
+// Monday of the week containing an ISO date string. Pure UTC arithmetic on a
+// date-only value, so the result never drifts a day with the viewer's offset.
+const weekStartOf = (dateStr) => {
+  const d = new Date(`${dateStr}T00:00:00Z`)
+  const day = d.getUTCDay()
+  d.setUTCDate(d.getUTCDate() - (day === 0 ? 6 : day - 1))
+  return d.toISOString().split('T')[0]
 }
 
 // Hours are summed at full precision and rounded only here, so a total can
@@ -128,6 +136,7 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
   const [viewingWeek, setViewingWeek] = useState(null)
   const [weekOptions, setWeekOptions] = useState([])
   const [handoverTasks, setHandoverTasks] = useState([])
+  const [pdfImportResult, setPdfImportResult] = useState(null)
   const [approvingTask, setApprovingTask] = useState(null) // { task, time, date }
 
   const getCurrentWeekStart = () => {
@@ -395,9 +404,15 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
     fetchAll(viewingWeek)
   }
 
+  // The PDF is a grid: a row per employee, a column per day. Text extraction
+  // flattens it to a stream of items, so day alignment has to come from each
+  // cell's x position. Counting tokens instead puts an employee's first shift
+  // on Monday no matter which day it actually sits under -- for someone who
+  // only works Friday and Saturday, every shift lands on the wrong day.
   const handlePdfImport = async (e) => {
     const file = e.target.files[0]
     if (!file) return
+    setPdfImportResult(null)
     try {
       const arrayBuffer = await file.arrayBuffer()
       const pdfjsLib = await import('pdfjs-dist')
@@ -407,14 +422,28 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
       const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
       pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-      let fullText = ''
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i)
+
+      const items = []
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p)
         const content = await page.getTextContent()
-        fullText += content.items.map(item => item.str).join(' ') + '\n'
+        for (const it of content.items) {
+          if (!it.str || !it.str.trim()) continue
+          items.push({
+            str: it.str.trim(),
+            x: it.transform[4],
+            // Offset per page, or rows on page 2 would cluster with page 1.
+            y: it.transform[5] - (p - 1) * 100000,
+            w: it.width || 0,
+          })
+        }
       }
 
-      const result = parseSchedulePdf(fullText)
+      const result = parseSchedulePdf(items)
+      if (result.error) {
+        alert(result.error)
+        return
+      }
       if (result.shifts.length === 0) {
         alert('No shifts found in PDF. Please check the file format.')
         return
@@ -423,14 +452,17 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
       const weekStart = result.weekStart || getSchedulingWeek()
       await supabase.from('shifts').delete().eq('week_start', weekStart).eq('published', false)
 
+      const allEmps = [...employees, ...extraEmployees]
       const errors = []
       const rows = []
       for (const shift of result.shifts) {
-        const emp = [...employees, ...extraEmployees].find(e =>
-          e.name.toLowerCase().trim() === shift.employeeName.toLowerCase().trim()
+        const emp = allEmps.find(emp2 =>
+          emp2.name.toLowerCase().trim() === shift.employeeName.toLowerCase().trim()
         )
         if (!emp) {
-          errors.push(`"${shift.employeeName}" not found in app — skipped`)
+          // One warning per unknown name, not one per shift they appear in.
+          const msg = `"${shift.employeeName}" not found in app -- skipped`
+          if (!errors.includes(msg)) errors.push(msg)
           continue
         }
         rows.push({
@@ -445,6 +477,9 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
 
       if (rows.length > 0) await supabase.from('shifts').insert(rows)
       setPdfImportResult({ imported: rows.length, errors })
+      // Jump the view to the imported week, otherwise the fetch below loads a
+      // week the selector is not pointing at.
+      setViewingWeek(weekStart)
       fetchAll(weekStart)
     } catch (err) {
       console.error('PDF import error:', err)
@@ -453,86 +488,87 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
     e.target.value = ''
   }
 
-  const parseSchedulePdf = (text) => {
-    const shifts = []
+  const parseSchedulePdf = (items) => {
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    const TIME_RANGE = /(\d{1,2}):(\d{2})\s*(am|pm)\s*[-‐-―]\s*(\d{1,2}):(\d{2})\s*(am|pm)/gi
+    const centre = (it) => it.x + it.w / 2
 
-    const to24h = (timeStr) => {
-      const match = timeStr.match(/(\d+):(\d+)(am|pm)/i)
-      if (!match) return null
-      let [, h, m, period] = match
-      h = parseInt(h)
-      m = m.padStart(2, '0')
-      if (period.toLowerCase() === 'pm' && h !== 12) h += 12
-      if (period.toLowerCase() === 'am' && h === 12) h = 0
-      return `${String(h).padStart(2, '0')}:${m}`
+    const to24h = (h, m, period) => {
+      let hour = parseInt(h, 10)
+      if (period.toLowerCase() === 'pm' && hour !== 12) hour += 12
+      if (period.toLowerCase() === 'am' && hour === 12) hour = 0
+      return `${String(hour).padStart(2, '0')}:${m.padStart(2, '0')}`
     }
 
-    // Extract week start from date in PDF
+    // Column positions come from the header cells.
+    const dayCols = []
+    for (const day of days) {
+      const hit = items.find(it => it.str.toLowerCase() === day.toLowerCase())
+      if (hit) dayCols.push({ day, cx: centre(hit) })
+    }
+    if (dayCols.length === 0) {
+      return { shifts: [], weekStart: null, error: 'Could not find the day columns (Monday-Sunday) in this PDF.' }
+    }
+    dayCols.sort((a, b) => a.cx - b.cx)
+
+    const colWidth = dayCols.length > 1
+      ? (dayCols[dayCols.length - 1].cx - dayCols[0].cx) / (dayCols.length - 1)
+      : Infinity
+    // Anything left of the first column is the employee-name cell.
+    const nameEdge = dayCols[0].cx - colWidth / 2
+
+    // Week start from the date under the leftmost day column, normalised to its
+    // Monday in case the grid does not begin on one.
     let weekStart = null
-    const dateMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
-    if (dateMatch) {
-      const [, month, day, year] = dateMatch
-      const d = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
-      const dayOfWeek = d.getDay()
-      const diff = d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
-      d.setDate(diff)
-      weekStart = d.toISOString().split('T')[0]
+    const dateItems = items.filter(it => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(it.str))
+    if (dateItems.length > 0) {
+      const nearest = dateItems.reduce((best, it) =>
+        Math.abs(centre(it) - dayCols[0].cx) < Math.abs(centre(best) - dayCols[0].cx) ? it : best)
+      const [mm, dd, yyyy] = nearest.str.split('/')
+      weekStart = weekStartOf(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`)
     }
 
-    // Build a map of day names to index from PDF header
-    // The PDF has date columns like "Monday 09/21/2026"
-    // We parse employee rows: name then time slots per day
-    const allEmps = [...employees, ...extraEmployees]
-    
-    // Split into tokens
-    const tokens = text.split(/\s+/).filter(Boolean)
-    
-    let currentEmployee = null
-    let dayIndex = 0
-    let i = 0
+    // Cluster into rows by baseline: a name and its times can sit a point apart.
+    const rows = []
+    for (const it of [...items].sort((a, b) => b.y - a.y)) {
+      const row = rows.find(r => Math.abs(r.y - it.y) <= 6)
+      if (row) row.items.push(it)
+      else rows.push({ y: it.y, items: [it] })
+    }
 
-    while (i < tokens.length) {
-      const token = tokens[i]
+    const shifts = []
+    for (const row of rows) {
+      const nameItems = row.items.filter(it => centre(it) < nameEdge).sort((a, b) => a.x - b.x)
+      // The header and date rows carry no name cell, so they drop out here.
+      if (nameItems.length === 0) continue
+      const employeeName = nameItems.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim()
 
-      // Skip date patterns
-      if (token.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) { i++; continue }
+      // Bucket by nearest column, joining each cell's items before matching in
+      // case a range is split across several of them.
+      const cells = new Map()
+      for (const it of row.items) {
+        if (centre(it) < nameEdge) continue
+        let best = null
+        for (let i = 0; i < dayCols.length; i++) {
+          const dist = Math.abs(centre(it) - dayCols[i].cx)
+          if (dist <= colWidth / 2 && (best === null || dist < best.dist)) best = { i, dist }
+        }
+        if (best === null) continue
+        if (!cells.has(best.i)) cells.set(best.i, [])
+        cells.get(best.i).push(it)
+      }
 
-      // Skip day names in header
-      if (days.some(d => token === d)) { i++; continue }
-
-      // Check for time range like 6:00pm-3:00am
-      const timeMatch = token.match(/^(\d+:\d+(?:am|pm))-(\d+:\d+(?:am|pm))$/i)
-      if (timeMatch && currentEmployee) {
-        const startTime = to24h(timeMatch[1])
-        const endTime = to24h(timeMatch[2])
-        if (startTime && endTime && dayIndex < days.length) {
+      for (const [colIndex, cellItems] of cells) {
+        const text = cellItems.sort((a, b) => a.x - b.x).map(it => it.str).join('')
+        for (const m of text.matchAll(TIME_RANGE)) {
           shifts.push({
-            employeeName: currentEmployee,
-            day: days[dayIndex],
-            startTime,
-            endTime
+            employeeName,
+            day: dayCols[colIndex].day,
+            startTime: to24h(m[1], m[2], m[3]),
+            endTime: to24h(m[4], m[5], m[6])
           })
         }
-        dayIndex++
-        i++
-        continue
       }
-
-      // Try to match employee name (1 or 2 words)
-      let matched = false
-      for (const emp of allEmps) {
-        const parts = emp.name.trim().split(/\s+/)
-        const slice = tokens.slice(i, i + parts.length).join(' ')
-        if (slice.toLowerCase() === emp.name.toLowerCase()) {
-          currentEmployee = emp.name
-          dayIndex = 0
-          i += parts.length
-          matched = true
-          break
-        }
-      }
-      if (!matched) i++
     }
 
     return { shifts, weekStart }
