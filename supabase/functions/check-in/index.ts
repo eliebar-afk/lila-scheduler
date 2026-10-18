@@ -1,6 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const RESTAURANT_IP = '62.195.229.217'
+// Must match RESTAURANT_IP in src/EmployeeDashboard.jsx, which gates the UI.
+// If the two disagree the button appears but every check-in is rejected.
+const RESTAURANT_IP = '82.75.101.130'
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
