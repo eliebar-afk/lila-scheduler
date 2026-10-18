@@ -5,7 +5,6 @@ import { StockAdmin } from './StockTab'
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30']
 const HOURS_LATE = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30']
-const TODAY = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
 
 // Attendance is keyed by the restaurant's operating day, not the admin's
 // calendar day. Shifts run past midnight (last slot 03:30), so anything before
@@ -35,6 +34,18 @@ const operatingDate = (d = new Date()) => {
   if (Number(p.hour) < OPERATING_DAY_START_HOUR) day.setUTCDate(day.getUTCDate() - 1)
   return day.toISOString().split('T')[0]
 }
+
+// Weekday of the operating day, not the browser's calendar day: at 01:00 the
+// Wednesday shift is still running, and calling that Thursday highlights the
+// wrong column and surfaces the wrong "today's shift".
+const TODAY = new Date(`${operatingDate()}T12:00:00Z`)
+  .toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })
+
+// A Date's calendar day as it reads locally. toISOString() converts to UTC
+// first, so in a positive-offset zone local midnight rolls back to the previous
+// day -- that is what made October's range run 30 Sep - 30 Oct.
+const isoDate = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 // Monday of the week containing an ISO date string. Pure UTC arithmetic on a
 // date-only value, so the result never drifts a day with the viewer's offset.
@@ -139,27 +150,25 @@ export default function AdminDashboard({ user, onLogout, darkMode, toggleDarkMod
   const [pdfImportResult, setPdfImportResult] = useState(null)
   const [approvingTask, setApprovingTask] = useState(null) // { task, time, date }
 
-  const getCurrentWeekStart = () => {
-    const d = new Date()
-    const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-    d.setDate(diff)
-    return d.toISOString().split('T')[0]
-  }
+  // These produce the week_start written to shifts, so they have to agree with
+  // the employee side exactly. The old version kept the current time of day and
+  // then went through toISOString(), which before 02:00 returned the Sunday --
+  // a schedule published late at night was filed under a week_start no employee
+  // would ever look up.
+  const getCurrentWeekStart = () => weekStartOf(operatingDate())
 
   const getNextWeekStart = () => {
-    const d = new Date()
-    const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1) + 7
-    d.setDate(diff)
+    const d = new Date(`${getCurrentWeekStart()}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + 7)
     return d.toISOString().split('T')[0]
   }
 
   const getSchedulingWeek = () => viewingWeek || getCurrentWeekStart()
 
   const getWeekNumber = (dateStr) => {
-    const d = dateStr ? new Date(dateStr) : new Date()
-    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+    // Parsed as UTC throughout; reading local components off a UTC-midnight
+    // date lands on the day before in any negative-offset zone.
+    const date = new Date(`${dateStr || operatingDate()}T00:00:00Z`)
     const dayNum = date.getUTCDay() || 7
     date.setUTCDate(date.getUTCDate() + 4 - dayNum)
     const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
@@ -1145,8 +1154,8 @@ function AttendanceReport({ employees, supabase, shifts }) {
       end.setDate(end.getDate() + 6)
       weeks.push({
         label: `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
-        startDate: start.toISOString().split('T')[0],
-        endDate: end.toISOString().split('T')[0]
+        startDate: isoDate(start),
+        endDate: isoDate(end)
       })
     }
     return weeks
@@ -1154,15 +1163,17 @@ function AttendanceReport({ employees, supabase, shifts }) {
 
   const getMonthOptions = () => {
     const months = []
+    const now = new Date()
     for (let i = 0; i < 12; i++) {
-      const d = new Date()
-      d.setMonth(d.getMonth() - i)
-      const start = new Date(d.getFullYear(), d.getMonth(), 1)
-      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+      // Offset the month index rather than calling setMonth on today's date:
+      // on the 31st, "minus one month" normalises to the 1st of this month
+      // again, which listed October twice and left September unreachable.
+      const start = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
       months.push({
         label: start.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
-        startDate: start.toISOString().split('T')[0],
-        endDate: end.toISOString().split('T')[0]
+        startDate: isoDate(start),
+        endDate: isoDate(end)
       })
     }
     return months

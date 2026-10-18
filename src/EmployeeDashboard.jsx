@@ -5,7 +5,6 @@ import { StockEmployee } from './StockTab'
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const HOURS = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30']
 const HOURS_LATE = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00', '02:30']
-const TODAY = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
 const RESTAURANT_IP = '82.75.101.130'
 
 const getShiftColor = (startTime) => {
@@ -81,9 +80,16 @@ const getCurrentWeekStart = () => weekStartOf(operatingDate())
 // can never drift from the sum of the days shown under it.
 const fmtHours = (h) => h.toFixed(2)
 
+// Weekday of the operating day, not the browser's calendar day: at 01:00 the
+// Wednesday shift is still running, and calling that Thursday highlights the
+// wrong column and surfaces the wrong "today's shift".
+const TODAY = new Date(`${operatingDate()}T12:00:00Z`)
+  .toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })
+
 const getWeekNumber = (dateStr) => {
-  const d = dateStr ? new Date(dateStr) : new Date()
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  // Parsed as UTC throughout; reading local components off a UTC-midnight
+  // date lands on the day before in any negative-offset zone.
+  const date = new Date(`${dateStr || operatingDate()}T00:00:00Z`)
   const dayNum = date.getUTCDay() || 7
   date.setUTCDate(date.getUTCDate() + 4 - dayNum)
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
@@ -383,8 +389,11 @@ export default function EmployeeDashboard({ user, onLogout, darkMode, toggleDark
 
   const fetchMyWeekData = async (weekFilter = null) => {
     const weekStart = weekFilter || getCurrentWeekStart()
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekEnd.getDate() + 7)
+    // UTC arithmetic: stepping a local Date forward seven days across the
+    // spring DST change lands at 23:00 the day before, which cut the Sunday
+    // out of that week's hours.
+    const weekEnd = new Date(`${weekStart}T00:00:00Z`)
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7)
     const weekEndStr = weekEnd.toISOString().split('T')[0]
 
     const [{ data: shiftsData }, { data: attData }] = await Promise.all([
